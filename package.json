@@ -1,5 +1,5 @@
 {
-  "name": "get_profile",
+  "name": "get-profile-info",
   "version": "0.1.0",
   "private": true,
   "scripts": {

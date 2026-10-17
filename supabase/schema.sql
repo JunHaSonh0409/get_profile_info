@@ -39,3 +39,15 @@ USING (true);
 -- 인덱스 생성 (조회 성능 최적화)
 CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON public.profiles(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_profiles_gender ON public.profiles(gender);
+
+-- 3. Supabase Realtime 실시간 동기화 활성화
+-- 웹소켓을 통해 새 프로필이 등록될 때 실시간으로 알림을 받을 수 있도록 설정합니다.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+END $$;

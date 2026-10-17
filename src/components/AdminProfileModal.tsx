@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 interface ProfileRecord {
   id: string;
@@ -26,18 +27,41 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchProfiles();
+    if (!isOpen) return;
+
+    fetchProfiles();
+
+    // Setup Supabase Realtime WebSocket subscription
+    const client = supabase;
+    if (client && isSupabaseConfigured) {
+      setIsRealtimeActive(true);
+      const channel = client
+        .channel('realtime:profiles')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles' },
+          (payload) => {
+            console.log('⚡ 실시간 Supabase 변경 감지:', payload);
+            fetchProfiles();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        setIsRealtimeActive(false);
+        client.removeChannel(channel);
+      };
     }
   }, [isOpen]);
 
   const fetchProfiles = async () => {
     setIsLoading(true);
     try {
-      // 1. Check server API
-      const res = await fetch('/api/profile');
+      // 1. Fetch from Next.js server API
+      const res = await fetch('/api/profile', { cache: 'no-store' });
       const json = await res.json();
 
       let serverList: ProfileRecord[] = [];
@@ -45,11 +69,11 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
         serverList = json.data;
       }
 
-      // 2. Also check local storage for demo submissions
+      // 2. Also merge any local storage records
       const localStored = localStorage.getItem('submitted_profiles');
       const localList: ProfileRecord[] = localStored ? JSON.parse(localStored) : [];
 
-      // Combine without duplicates
+      // Combine by ID without duplicates
       const map = new Map<string, ProfileRecord>();
       [...serverList, ...localList].forEach((p) => {
         if (p.id) map.set(p.id, p);
@@ -73,7 +97,7 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
+        background: 'rgba(0, 0, 0, 0.78)',
         backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
@@ -109,11 +133,31 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
           }}
         >
           <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>
-              📋 접수된 프로필 목록 ({profiles.length}건)
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>
+                📋 접수된 프로필 목록 ({profiles.length}건)
+              </h3>
+              {isRealtimeActive && (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+                  실시간 연동 중
+                </span>
+              )}
+            </div>
             <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>
-              Supabase 데이터베이스 및 로컬에 저장된 실시간 신청 내역입니다.
+              Supabase 데이터베이스 및 Vercel 실시간 동기화 상태입니다.
             </p>
           </div>
           <button
@@ -134,9 +178,9 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
 
         {/* Modal Body */}
         <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
-          {isLoading ? (
+          {isLoading && profiles.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-dim)' }}>
-              불러오는 중...
+              Supabase에서 실시간 데이터를 불러오는 중...
             </div>
           ) : profiles.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-dim)' }}>
@@ -242,9 +286,19 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
             padding: '14px 20px',
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
+          <button
+            type="button"
+            className="btn-prev"
+            onClick={fetchProfiles}
+            style={{ padding: '8px 14px', fontSize: '13px' }}
+          >
+            🔄 새로고침
+          </button>
+
           <button
             type="button"
             className="btn-prev"

@@ -3,7 +3,7 @@ export interface ProfileData {
   nickname: string;
   phone: string;
   gender: '남성' | '여성' | '';
-  age: number | '';
+  age: string; // 몇년생 (예: '98년생')
   height: number | '';
   location: string;
   preferredAnimals: string[];

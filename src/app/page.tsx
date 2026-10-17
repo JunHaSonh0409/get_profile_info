@@ -31,7 +31,7 @@ const INITIAL_PROFILE: ProfileData = {
 
 const STEP_TITLES: Record<number, string> = {
   1: '기본 인적사항',
-  2: '성별 및 나이',
+  2: '성별 및 출생연도',
   3: '키 및 연락처',
   4: '사는 곳 (구)',
   5: '선호하는 동물상',
@@ -85,9 +85,7 @@ export default function ProfilePage() {
       case 2:
         return (
           (formData.gender === '남성' || formData.gender === '여성') &&
-          typeof formData.age === 'number' &&
-          formData.age >= 18 &&
-          formData.age <= 99
+          formData.age.trim().length >= 2
         );
       case 3:
         return (
@@ -119,7 +117,7 @@ export default function ProfilePage() {
         return '';
       case 2:
         if (!formData.gender) return '성별(남/여)을 선택해주세요.';
-        if (!formData.age || formData.age < 18) return '나이를 올바르게 입력해주세요 (18세 이상).';
+        if (!formData.age.trim()) return '출생연도(몇년생)를 선택하거나 입력해주세요.';
         return '';
       case 3:
         if (!formData.height || formData.height < 120) return '키(cm)를 입력해주세요.';
@@ -180,7 +178,7 @@ export default function ProfilePage() {
         nickname: formData.nickname,
         phone: formData.phone,
         gender: formData.gender,
-        age: Number(formData.age),
+        age: formData.age,
         height: Number(formData.height),
         location: formData.location,
         preferred_animals: formData.preferredAnimals,

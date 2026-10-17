@@ -77,7 +77,7 @@ export async function POST(request: Request) {
             nickname: nickname.trim(),
             phone: phone.trim(),
             gender,
-            age: Number(age),
+            age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
             height: Number(height),
             location: location.trim(),
             preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],

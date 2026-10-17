@@ -2,10 +2,25 @@
 
 interface Props {
   gender: '남성' | '여성' | '';
-  age: number | '';
-  onChange: (fields: { gender?: '남성' | '여성'; age?: number | '' }) => void;
+  age: string;
+  onChange: (fields: { gender?: '남성' | '여성'; age?: string }) => void;
   onEnter?: () => void;
 }
+
+const POPULAR_BIRTH_YEARS = [
+  '94년생', '95년생', '96년생', '97년생', '98년생',
+  '99년생', '00년생', '01년생', '02년생', '03년생'
+];
+
+// Generate years 2006 ~ 1980 for dropdown
+const ALL_YEARS = Array.from({ length: 27 }, (_, i) => {
+  const fullYear = 2006 - i;
+  const shortYear = String(fullYear).slice(-2);
+  return {
+    fullYear,
+    label: `${shortYear}년생 (${fullYear}년)`
+  };
+});
 
 export default function StepGenderAge({ gender, age, onChange, onEnter }: Props) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -15,11 +30,25 @@ export default function StepGenderAge({ gender, age, onChange, onEnter }: Props)
     }
   };
 
+  const handleInputChange = (val: string) => {
+    // If user enters '98' or '1998'
+    let clean = val.trim();
+    if (clean && !clean.endsWith('년생')) {
+      const numOnly = clean.replace(/[^0-9]/g, '');
+      if (numOnly.length === 2) {
+        clean = `${numOnly}년생`;
+      } else if (numOnly.length === 4) {
+        clean = `${numOnly.slice(-2)}년생`;
+      }
+    }
+    onChange({ age: clean });
+  };
+
   return (
     <div className="animate-slide">
-      <div className="card-badge">STEP 2 · 성별 및 나이</div>
-      <h2 className="step-title">성별과 나이를<br />선택해주세요.</h2>
-      <p className="step-subtitle">어울리는 최적의 매칭 연령대를 추천해드리기 위해 필요해요.</p>
+      <div className="card-badge">STEP 2 · 성별 및 출생연도</div>
+      <h2 className="step-title">성별과 출생연도를<br />선택해주세요.</h2>
+      <p className="step-subtitle">어울리는 최적의 매칭 연령대를 추천해드리기 위해 몇 년생인지 알려주세요.</p>
 
       {/* 성별 남/여 버튼 */}
       <div className="form-group">
@@ -47,52 +76,68 @@ export default function StepGenderAge({ gender, age, onChange, onEnter }: Props)
         </div>
       </div>
 
-      {/* 나이 입력 */}
+      {/* 몇년생 입력 & 빠른 선택 */}
       <div className="form-group" style={{ marginTop: '24px' }}>
-        <label className="form-label">
-          나이 (만 나이 기준) <span className="required-dot">*</span>
-        </label>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <input
-            type="number"
-            className="form-input"
-            placeholder="예: 27"
-            min={18}
-            max={99}
-            value={age === '' ? '' : age}
-            onChange={(e) => {
-              const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-              onChange({ age: isNaN(val as number) ? '' : val });
-            }}
-            onKeyDown={handleKeyDown}
-            style={{ paddingRight: '48px' }}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              right: '16px',
-              color: 'var(--text-muted)',
-              fontSize: '14px',
-              fontWeight: 600,
-              pointerEvents: 'none',
-            }}
-          >
-            세
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <label className="form-label" style={{ margin: 0 }}>
+            출생연도 (몇 년생) <span className="required-dot">*</span>
+          </label>
+          {age && (
+            <span style={{ fontSize: '13px', color: '#ff85a1', fontWeight: 700 }}>
+              선택: {age}
+            </span>
+          )}
         </div>
 
-        {/* Quick age chips */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
-          {[24, 26, 28, 30, 32, 34].map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={`quick-tag ${age === item ? 'active' : ''}`}
-              onClick={() => onChange({ age: item })}
-            >
-              {item}세
-            </button>
-          ))}
+        {/* Input & Dropdown combo */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="예: 98년생 (또는 98)"
+            value={age}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            maxLength={10}
+          />
+
+          <select
+            className="form-select"
+            value={age}
+            onChange={(e) => onChange({ age: e.target.value })}
+            style={{ fontSize: '14px', padding: '12px' }}
+          >
+            <option value="" disabled style={{ background: '#131627', color: '#888' }}>
+              목록에서 선택
+            </option>
+            {ALL_YEARS.map((y) => {
+              const val = `${String(y.fullYear).slice(-2)}년생`;
+              return (
+                <option key={y.fullYear} value={val} style={{ background: '#131627', color: '#fff' }}>
+                  {y.label}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {/* Quick birth year chips */}
+        <div style={{ marginTop: '12px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+            🔥 빠른 선택:
+          </span>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {POPULAR_BIRTH_YEARS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={`quick-tag ${age === item ? 'active' : ''}`}
+                onClick={() => onChange({ age: item })}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

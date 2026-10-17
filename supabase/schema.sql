@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     nickname VARCHAR(100) NOT NULL,
     phone VARCHAR(50) NOT NULL,
     gender VARCHAR(10) NOT NULL CHECK (gender IN ('남성', '여성')),
-    age INTEGER NOT NULL CHECK (age >= 18 AND age <= 100),
+    age VARCHAR(50) NOT NULL, -- 몇년생 (예: 98년생, 01년생)
     height INTEGER NOT NULL CHECK (height >= 120 AND height <= 230),
     location VARCHAR(100) NOT NULL, -- 구 단위까지 (예: 서울 강남구, 경기 성남시 분당구)
     preferred_animals TEXT[] NOT NULL DEFAULT '{}', -- 선호 동물상 리스트

@@ -9,7 +9,7 @@ interface ProfileRecord {
   nickname: string;
   phone: string;
   gender: string;
-  age: number;
+  age: string | number;
   height: number;
   location: string;
   preferred_animals: string[];
@@ -225,7 +225,7 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
                               fontWeight: 600,
                             }}
                           >
-                            {p.gender} · {p.age}세
+                            {p.gender} · {String(p.age).endsWith('년생') ? p.age : `${p.age}년생`}
                           </span>
                         </div>
                         <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>

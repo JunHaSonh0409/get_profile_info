@@ -121,7 +121,7 @@ export default function ProfilePage() {
         return '';
       case 3:
         if (!formData.height || formData.height < 120) return '키(cm)를 입력해주세요.';
-        if (formData.phone.replace(/[^0-9]/g, '').length < 10) return '전화번호 10~11자리를 입력해주세요.';
+        if (formData.phone.replace(/[^0-9]/g, '').length < 10) return "전화번호를 '-' 없이 10~11자리 숫자로 입력해주세요.";
         return '';
       case 4:
         if (!formData.location.trim()) return '거주 지역(구)을 선택하거나 입력해주세요.';

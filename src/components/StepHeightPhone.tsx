@@ -8,25 +8,14 @@ interface Props {
 }
 
 export default function StepHeightPhone({ height, phone, onChange, onEnter }: Props) {
-  // 전화번호 자동 하이픈 포맷터 (010-XXXX-XXXX)
-  const formatPhoneNumber = (val: string) => {
-    const raw = val.replace(/[^0-9]/g, '').slice(0, 11);
-    if (raw.length <= 3) {
-      return raw;
-    } else if (raw.length <= 7) {
-      return `${raw.slice(0, 3)}-${raw.slice(3)}`;
-    } else {
-      return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7)}`;
-    }
-  };
-
+  // '-' 없이 순수 숫자만 허용 (최대 11자리)
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    onChange({ phone: formatted });
+    const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+    onChange({ phone: digitsOnly });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && height && phone.length >= 12 && onEnter) {
+    if (e.key === 'Enter' && height && phone.length >= 10 && onEnter) {
       e.preventDefault();
       onEnter();
     }
@@ -87,20 +76,34 @@ export default function StepHeightPhone({ height, phone, onChange, onEnter }: Pr
         </div>
       </div>
 
-      {/* 전화번호 입력 */}
+      {/* 전화번호 입력 ('-' 제외 순수 숫자) */}
       <div className="form-group" style={{ marginTop: '24px' }}>
-        <label className="form-label">
-          전화번호 <span className="required-dot">*</span>
-        </label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <label className="form-label" style={{ margin: 0 }}>
+            전화번호 <span className="required-dot">*</span>
+          </label>
+          {phone && (
+            <span style={{ fontSize: '12px', color: phone.length >= 10 ? '#34d399' : '#f59e0b', fontWeight: 600 }}>
+              {phone.length}/11자리
+            </span>
+          )}
+        </div>
+
         <input
           type="tel"
+          inputMode="numeric"
+          pattern="[0-9]*"
           className="form-input"
-          placeholder="010-0000-0000"
+          placeholder="'-' 없이 숫자만 입력 (예: 01012345678)"
           value={phone}
           onChange={handlePhoneChange}
           onKeyDown={handleKeyDown}
-          maxLength={13}
+          maxLength={11}
         />
+        <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px' }}>
+          💡 하이픈(-) 없이 숫자만 10~11자리로 입력해주세요.
+        </p>
+
         <div
           style={{
             display: 'flex',

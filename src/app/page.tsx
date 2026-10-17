@@ -85,7 +85,7 @@ export default function ProfilePage() {
       case 2:
         return (
           (formData.gender === '남성' || formData.gender === '여성') &&
-          formData.age.trim().length >= 2
+          formData.age.replace(/[^0-9]/g, '').length >= 2
         );
       case 3:
         return (
@@ -117,7 +117,7 @@ export default function ProfilePage() {
         return '';
       case 2:
         if (!formData.gender) return '성별(남/여)을 선택해주세요.';
-        if (!formData.age.trim()) return '출생연도(몇년생)를 선택하거나 입력해주세요.';
+        if (formData.age.replace(/[^0-9]/g, '').length < 2) return '출생연도 숫자(예: 98 또는 1998)를 입력해주세요.';
         return '';
       case 3:
         if (!formData.height || formData.height < 120) return '키(cm)를 입력해주세요.';

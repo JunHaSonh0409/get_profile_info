@@ -108,4 +108,3 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 
 4. **Deploy 버튼 클릭**
    - 1분 안에 전 세계 CDN에 최적화된 URL이 발급됩니다!
-# get_profile_info

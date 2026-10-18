@@ -59,7 +59,7 @@ export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, e
         <div className="summary-row">
           <span className="summary-key">키 / 연락처</span>
           <span className="summary-val">
-            {data.height}cm · {data.phone}
+            {data.height}cm · {data.phone} <span style={{ color: '#34d399', fontSize: '11px', fontWeight: 700, marginLeft: '4px' }}>✓인증완료</span>
             <button type="button" className="summary-edit-btn" onClick={() => onGoToStep(3)}>수정</button>
           </span>
         </div>

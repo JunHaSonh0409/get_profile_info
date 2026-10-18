@@ -49,6 +49,7 @@ export default function ProfilePage() {
   const [receiptId, setReceiptId] = useState<string>('');
   const [isDemoSubmission, setIsDemoSubmission] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState<boolean>(false);
 
   // Restore draft from localStorage on initial load
   useEffect(() => {
@@ -57,6 +58,10 @@ export default function ProfilePage() {
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
         setFormData((prev) => ({ ...prev, ...parsed }));
+      }
+      const savedVerified = localStorage.getItem('profile_phone_verified');
+      if (savedVerified === 'true') {
+        setIsPhoneVerified(true);
       }
     } catch (e) {
       console.log('No draft found', e);
@@ -93,7 +98,8 @@ export default function ProfilePage() {
           typeof formData.height === 'number' &&
           formData.height >= 120 &&
           formData.height <= 230 &&
-          formData.phone.replace(/[^0-9]/g, '').length >= 10
+          formData.phone.replace(/[^0-9]/g, '').length >= 10 &&
+          isPhoneVerified
         );
       case 4:
         return formData.location.trim().length > 0;
@@ -123,6 +129,7 @@ export default function ProfilePage() {
       case 3:
         if (!formData.height || formData.height < 120) return '키(cm)를 입력해주세요.';
         if (formData.phone.replace(/[^0-9]/g, '').length < 10) return "전화번호를 '-' 없이 10~11자리 숫자로 입력해주세요.";
+        if (!isPhoneVerified) return '옥토모(OCTOMO) 문자로 전화번호 점유 인증을 완료해주세요.';
         return '';
       case 4:
         if (!formData.location.trim()) return '거주 지역(구)을 선택하거나 입력해주세요.';
@@ -196,6 +203,7 @@ export default function ProfilePage() {
 
       // Clear draft
       localStorage.removeItem('profile_form_draft');
+      localStorage.removeItem('profile_phone_verified');
 
       setReceiptId(record.id);
       setIsDemoSubmission(Boolean(result.isDemo));
@@ -212,6 +220,8 @@ export default function ProfilePage() {
   const handleReset = () => {
     setFormData(INITIAL_PROFILE);
     localStorage.removeItem('profile_form_draft');
+    localStorage.removeItem('profile_phone_verified');
+    setIsPhoneVerified(false);
     setStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -301,6 +311,15 @@ export default function ProfilePage() {
           <StepHeightPhone
             height={formData.height}
             phone={formData.phone}
+            isPhoneVerified={isPhoneVerified}
+            onPhoneVerifyChange={(verified) => {
+              setIsPhoneVerified(verified);
+              try {
+                localStorage.setItem('profile_phone_verified', verified ? 'true' : 'false');
+              } catch (e) {
+                console.error(e);
+              }
+            }}
             onChange={updateFormData}
             onEnter={handleNext}
           />

@@ -62,7 +62,7 @@ export default function StepPartnerDetail({ detail, onChange }: Props) {
           rows={5}
         />
         <div className="char-counter">
-          <span>{detail.length >= 10 ? '✅ 충분히 자세히 작성되었어요' : '최소 10자 이상 작성을 권장합니다'}</span>
+          <span>{detail.length >= 10 ? '✅ 충분히 자세히 작성되었어요' : '자세히 작성해야 채택될 확률이 올라갑니다.'}</span>
           <span>{detail.length}자</span>
         </div>
       </div>

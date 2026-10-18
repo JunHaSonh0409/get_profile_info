@@ -24,6 +24,15 @@ interface Props {
   onClose: () => void;
 }
 
+function maskPhoneNumber(phone: string): string {
+  const digits = String(phone || '').replace(/[^0-9]/g, '');
+  if (digits.length >= 10) {
+    const middleFirst = digits[3] || '0';
+    return `010-${middleFirst}xxx-xxxx`;
+  }
+  return '010-0xxx-xxxx';
+}
+
 export default function AdminProfileModal({ isOpen, onClose }: Props) {
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -230,7 +239,7 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
                           </span>
                         </div>
                         <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                          📍 {p.location} · 📏 {p.height}cm · 📞 {p.phone}
+                          📍 {p.location} · 📏 {p.height}cm · 📞 {maskPhoneNumber(p.phone)}
                         </div>
                       </div>
                       <span style={{ color: 'var(--text-dim)', fontSize: '13px' }}>

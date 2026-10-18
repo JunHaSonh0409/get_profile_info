@@ -9,7 +9,7 @@ interface Props {
   receiptId?: string;
   isDemo?: boolean;
   onReset: () => void;
-  onViewList: () => void;
+  onViewList?: () => void;
 }
 
 export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewList }: Props) {
@@ -95,14 +95,16 @@ export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewLi
 
       {/* 액션 버튼들 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <button
-          type="button"
-          className="btn-next"
-          onClick={onViewList}
-          style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' }}
-        >
-          📋 등록된 프로필 목록 확인하기
-        </button>
+        {onViewList && (
+          <button
+            type="button"
+            className="btn-next"
+            onClick={onViewList}
+            style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' }}
+          >
+            📋 등록된 프로필 목록 확인하기
+          </button>
+        )}
 
         <button
           type="button"

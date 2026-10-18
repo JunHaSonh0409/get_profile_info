@@ -107,6 +107,18 @@ export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, e
           </div>
         </div>
 
+        {data.preferredAppearanceDetail && (
+          <div className="summary-row" style={{ flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <span className="summary-key">원하는 외적 구체상</span>
+              <button type="button" className="summary-edit-btn" onClick={() => onGoToStep(5)}>수정</button>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+              {data.preferredAppearanceDetail}
+            </p>
+          </div>
+        )}
+
         <div className="summary-row" style={{ flexDirection: 'column', gap: '6px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
             <span className="summary-key">선호하는 이성 (자세히)</span>

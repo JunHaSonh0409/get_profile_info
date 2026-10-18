@@ -25,6 +25,7 @@ const INITIAL_PROFILE: ProfileData = {
   height: '',
   location: '',
   preferredAnimals: [],
+  preferredAppearanceDetail: '',
   preferredPartnerDetail: '',
   selfIntro: '',
 };
@@ -182,6 +183,7 @@ export default function ProfilePage() {
         height: Number(formData.height),
         location: formData.location,
         preferred_animals: formData.preferredAnimals,
+        preferred_appearance_detail: formData.preferredAppearanceDetail,
         preferred_partner_detail: formData.preferredPartnerDetail,
         self_intro: formData.selfIntro,
         created_at: new Date().toISOString(),
@@ -315,6 +317,7 @@ export default function ProfilePage() {
         {step === 5 && (
           <StepAnimalType
             preferredAnimals={formData.preferredAnimals}
+            preferredAppearanceDetail={formData.preferredAppearanceDetail}
             onChange={updateFormData}
             onEnter={handleNext}
           />

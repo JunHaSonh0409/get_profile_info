@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       height,
       location,
       preferredAnimals,
+      preferredAppearanceDetail,
       preferredPartnerDetail,
       selfIntro,
     } = body;
@@ -69,24 +70,39 @@ export async function POST(request: Request) {
         auth: { persistSession: false },
       });
 
-      const { data, error } = await supabase
+      const profilePayload: Record<string, unknown> = {
+        name: name.trim(),
+        nickname: nickname.trim(),
+        phone: String(phone).replace(/[^0-9]/g, '').trim(),
+        gender,
+        age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
+        height: Number(height),
+        location: location.trim(),
+        preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],
+        preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
+        preferred_partner_detail: preferredPartnerDetail.trim(),
+        self_intro: selfIntro.trim(),
+      };
+
+      let { data, error } = await supabase
         .from('profiles')
-        .insert([
-          {
-            name: name.trim(),
-            nickname: nickname.trim(),
-            phone: String(phone).replace(/[^0-9]/g, '').trim(),
-            gender,
-            age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
-            height: Number(height),
-            location: location.trim(),
-            preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],
-            preferred_partner_detail: preferredPartnerDetail.trim(),
-            self_intro: selfIntro.trim(),
-          },
-        ])
+        .insert([profilePayload])
         .select()
         .single();
+
+      // If preferred_appearance_detail column doesn't exist yet in DB (code 42703), retry without it
+      if (error && error.code === '42703') {
+        console.warn('preferred_appearance_detail column not yet created in Supabase. Retrying without it.');
+        const fallbackPayload = { ...profilePayload };
+        delete fallbackPayload.preferred_appearance_detail;
+        const retryResult = await supabase
+          .from('profiles')
+          .insert([fallbackPayload])
+          .select()
+          .single();
+        data = retryResult.data;
+        error = retryResult.error;
+      }
 
       if (error) {
         console.error('Supabase DB Insert Error:', error);

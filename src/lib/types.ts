@@ -7,6 +7,7 @@ export interface ProfileData {
   height: number | '';
   location: string;
   preferredAnimals: string[];
+  preferredAppearanceDetail: string; // 외적인 구체적인 상 설명
   preferredPartnerDetail: string;
   selfIntro: string;
 }

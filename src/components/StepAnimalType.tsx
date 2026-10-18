@@ -4,11 +4,16 @@ import { ANIMAL_OPTIONS } from '@/lib/types';
 
 interface Props {
   preferredAnimals: string[];
-  onChange: (fields: { preferredAnimals: string[] }) => void;
+  preferredAppearanceDetail: string;
+  onChange: (fields: { preferredAnimals?: string[]; preferredAppearanceDetail?: string }) => void;
   onEnter?: () => void;
 }
 
-export default function StepAnimalType({ preferredAnimals, onChange, onEnter }: Props) {
+export default function StepAnimalType({
+  preferredAnimals,
+  preferredAppearanceDetail,
+  onChange,
+}: Props) {
   const toggleAnimal = (label: string) => {
     if (label === '상관없음') {
       if (preferredAnimals.includes('상관없음')) {
@@ -37,6 +42,7 @@ export default function StepAnimalType({ preferredAnimals, onChange, onEnter }: 
       <h2 className="step-title">선호하는 이성의<br />분위기나 동물상을 선택해주세요.</h2>
       <p className="step-subtitle">여러 개를 중복 선택하실 수 있어요. (동물상에 구애받지 않으시면 &apos;상관없음&apos; 선택)</p>
 
+      {/* 동물상 선택 헤더 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
           선택 가능한 동물상 목록 (복수 선택 가능)
@@ -46,6 +52,7 @@ export default function StepAnimalType({ preferredAnimals, onChange, onEnter }: 
         </span>
       </div>
 
+      {/* 동물상 그리드 */}
       <div className="animal-grid">
         {ANIMAL_OPTIONS.map((item) => {
           const isSelected = preferredAnimals.includes(item.label);
@@ -65,9 +72,24 @@ export default function StepAnimalType({ preferredAnimals, onChange, onEnter }: 
         })}
       </div>
 
-      <p style={{ fontSize: '12px', color: 'var(--text-dim)', textAlign: 'center' }}>
-        💡 다음 단계에서 외모 외에 성격과 가치관에 대한 구체적인 이상형을 작성하게 됩니다.
-      </p>
+      {/* 외적인 구체적인 상 입력 필드 */}
+      <div className="form-group" style={{ marginTop: '24px' }}>
+        <label className="form-label" style={{ fontSize: '14px', color: '#ff85a1', fontWeight: 700, marginBottom: '6px' }}>
+          원하시는 외적인 구체적인 상을 설명해주세요
+        </label>
+        <textarea
+          className="form-textarea"
+          placeholder="예: 쌍꺼풀 없는 담백하고 훈훈한 눈매, 웃는 모습이 매력적인 인상, 단정하고 깔끔한 분위기 등"
+          value={preferredAppearanceDetail}
+          onChange={(e) => onChange({ preferredAppearanceDetail: e.target.value })}
+          rows={3}
+          style={{ minHeight: '90px', fontSize: '14px' }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '12px', color: 'var(--text-dim)' }}>
+          <span>💡 원하시는 외모 스타일, 눈매, 체형 분위기 등을 편하게 적어주세요.</span>
+          <span>{preferredAppearanceDetail?.length || 0}자</span>
+        </div>
+      </div>
     </div>
   );
 }

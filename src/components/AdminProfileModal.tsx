@@ -13,6 +13,7 @@ interface ProfileRecord {
   height: number;
   location: string;
   preferred_animals: string[];
+  preferred_appearance_detail?: string;
   preferred_partner_detail: string;
   self_intro: string;
   created_at: string;
@@ -256,6 +257,14 @@ export default function AdminProfileModal({ isOpen, onClose }: Props) {
                             ? p.preferred_animals.join(', ')
                             : '없음 / 상관없음'}
                         </div>
+                        {p.preferred_appearance_detail && (
+                          <div>
+                            <b style={{ color: '#ec4899' }}>원하는 외적 구체상:</b>
+                            <p style={{ marginTop: '4px', color: 'var(--text-main)', lineHeight: 1.5, background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                              {p.preferred_appearance_detail}
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <b style={{ color: '#8b5cf6' }}>선호하는 이성 (자세히):</b>
                           <p style={{ marginTop: '4px', color: 'var(--text-main)', lineHeight: 1.5, background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>

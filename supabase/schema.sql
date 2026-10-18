@@ -14,10 +14,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     height INTEGER NOT NULL CHECK (height >= 120 AND height <= 230),
     location VARCHAR(100) NOT NULL, -- 구 단위까지 (예: 서울 강남구, 경기 성남시 분당구)
     preferred_animals TEXT[] NOT NULL DEFAULT '{}', -- 선호 동물상 리스트
+    preferred_appearance_detail TEXT DEFAULT '', -- 원하시는 외적인 구체적인 상 설명
     preferred_partner_detail TEXT NOT NULL, -- 선호하는 이성 상세
     self_intro TEXT NOT NULL, -- 본인은 어떤 사람인가 상세
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- 기존 테이블에 컬럼 추가 시:
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_appearance_detail TEXT DEFAULT '';
 
 -- 2. RLS(Row Level Security) 설정
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

@@ -75,7 +75,7 @@ export default function StepAnimalType({
       {/* 외적인 구체적인 상 입력 필드 */}
       <div className="form-group" style={{ marginTop: '24px' }}>
         <label className="form-label" style={{ fontSize: '14px', color: '#ff85a1', fontWeight: 700, marginBottom: '6px' }}>
-          원하시는 외적인 구체적인 상을 설명해주세요
+          원하시는 외적인 구체적인 상을 설명해주세요(정보가 많아야 찾기 쉬워요)
         </label>
         <textarea
           className="form-textarea"

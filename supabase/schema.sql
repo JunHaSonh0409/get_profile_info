@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     nickname VARCHAR(100) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
+    phone VARCHAR(50) NOT NULL UNIQUE, -- 중복 가입 방지 (1인 1계정)
     gender VARCHAR(10) NOT NULL CHECK (gender IN ('남성', '여성')),
     age VARCHAR(50) NOT NULL, -- 몇년생 (예: 98년생, 01년생)
     height INTEGER NOT NULL CHECK (height >= 120 AND height <= 230),
@@ -20,8 +20,24 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 기존 테이블에 컬럼 추가 시:
+-- 기존 테이블 업데이트 및 전화번호 중복 방지 (1인 1프로필 제한)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_appearance_detail TEXT DEFAULT '';
+
+-- 기존 데이터 전화번호의 하이픈(-) 제거 표준화
+UPDATE public.profiles SET phone = regexp_replace(phone, '[^0-9]', '', 'g');
+
+-- 전화번호 UNIQUE 제약조건 추가 (중복 방지)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_phone_unique'
+  ) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_phone_unique UNIQUE (phone);
+  END IF;
+END $$;
+
+-- 전화번호 유니크 인덱스 생성
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_phone_unique ON public.profiles(phone);
 
 -- 2. RLS(Row Level Security) 설정
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

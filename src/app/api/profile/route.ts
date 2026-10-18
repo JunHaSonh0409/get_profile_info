@@ -70,10 +70,32 @@ export async function POST(request: Request) {
         auth: { persistSession: false },
       });
 
+      const cleanPhone = String(phone).replace(/[^0-9]/g, '').trim();
+
+      // Check if phone number is already registered in Supabase
+      const { data: existingRows } = await supabase
+        .from('profiles')
+        .select('id, phone');
+
+      if (existingRows) {
+        const isDuplicate = existingRows.some(
+          (row) => String(row.phone || '').replace(/[^0-9]/g, '') === cleanPhone
+        );
+        if (isDuplicate) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '이미 등록된 전화번호입니다. 1인당 1개의 프로필만 등록하실 수 있습니다.',
+            },
+            { status: 409, headers: corsHeaders }
+          );
+        }
+      }
+
       const profilePayload: Record<string, unknown> = {
         name: name.trim(),
         nickname: nickname.trim(),
-        phone: String(phone).replace(/[^0-9]/g, '').trim(),
+        phone: cleanPhone,
         gender,
         age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
         height: Number(height),
@@ -106,6 +128,15 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Supabase DB Insert Error:', error);
+        if (error.code === '23505') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '이미 등록된 전화번호입니다. 1인당 1개의 프로필만 등록하실 수 있습니다.',
+            },
+            { status: 409, headers: corsHeaders }
+          );
+        }
         return NextResponse.json(
           { 
             success: false, 

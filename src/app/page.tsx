@@ -140,7 +140,6 @@ export default function ProfilePage() {
       case 6:
         return '';
       case 7:
-        if (formData.selfIntro.trim().length < 5) return '본인 소개를 5자 이상 적어주세요.';
         return '';
       default:
         return '';

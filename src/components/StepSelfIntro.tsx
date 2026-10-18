@@ -62,8 +62,21 @@ export default function StepSelfIntro({ selfIntro, onChange }: Props) {
           rows={6}
         />
         <div className="char-counter">
-          <span>{selfIntro.length >= 10 ? '✅ 멋진 소개글이에요!' : '최소 10자 이상 작성을 권장합니다'}</span>
-          <span>{selfIntro.length}자</span>
+          <span
+            style={{
+              fontWeight: 700,
+              color: '#ff85a1',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <span>💡</span> 자세히 작성해야 채택될 확률이 올라갑니다.
+          </span>
+          <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
+            {selfIntro.length}자
+          </span>
         </div>
       </div>
     </div>

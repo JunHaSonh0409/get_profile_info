@@ -384,9 +384,12 @@ body {
 }
 
 .animal-tagline {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-dim);
-  line-height: 1.3;
+  line-height: 1.4;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  letter-spacing: -0.2px;
 }
 
 .animal-check-badge {

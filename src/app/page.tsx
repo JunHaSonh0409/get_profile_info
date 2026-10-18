@@ -138,7 +138,6 @@ export default function ProfilePage() {
         if (formData.preferredAnimals.length === 0) return '선호하는 동물상을 1개 이상 선택해주세요.';
         return '';
       case 6:
-        if (formData.preferredPartnerDetail.trim().length < 5) return '자세히 작성해야 채택될 확률이 올라갑니다.';
         return '';
       case 7:
         if (formData.selfIntro.trim().length < 5) return '본인 소개를 5자 이상 적어주세요.';

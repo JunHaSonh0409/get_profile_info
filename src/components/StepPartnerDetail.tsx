@@ -62,8 +62,21 @@ export default function StepPartnerDetail({ detail, onChange }: Props) {
           rows={5}
         />
         <div className="char-counter">
-          <span>{detail.length >= 10 ? '✅ 충분히 자세히 작성되었어요' : '자세히 작성해야 채택될 확률이 올라갑니다.'}</span>
-          <span>{detail.length}자</span>
+          <span
+            style={{
+              fontWeight: 700,
+              color: '#ff85a1',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <span>💡</span> 자세히 작성해야 채택될 확률이 올라갑니다.
+          </span>
+          <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
+            {detail.length}자
+          </span>
         </div>
       </div>
     </div>

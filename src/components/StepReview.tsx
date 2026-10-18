@@ -2,6 +2,7 @@
 
 import { ProfileData } from '@/lib/types';
 import { useState } from 'react';
+import PrivacyModal from './PrivacyModal';
 
 interface Props {
   data: ProfileData;
@@ -12,7 +13,9 @@ interface Props {
 }
 
 export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, errorMessage }: Props) {
-  const [agreed, setAgreed] = useState(true);
+  const [agreedMatch, setAgreedMatch] = useState(true);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(true);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   return (
     <div className="animate-slide">
@@ -140,37 +143,97 @@ export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, e
         </div>
       </div>
 
-      {/* 동의 체크박스 */}
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          cursor: 'pointer',
-          padding: '12px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          borderRadius: '10px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          marginBottom: '16px',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
-          style={{ width: '16px', height: '16px', accentColor: '#ff4370' }}
-        />
-        <span>작성한 프로필 정보 제공 및 매칭 프로세스 진행에 동의합니다.</span>
-      </label>
+      {/* 동의 체크박스 영역 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+        {/* 기존 체크박스: 프로필 제공 및 매칭 진행 동의 */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            cursor: 'pointer',
+            padding: '12px 14px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={agreedMatch}
+            onChange={(e) => setAgreedMatch(e.target.checked)}
+            style={{ width: '16px', height: '16px', accentColor: '#ff4370', cursor: 'pointer' }}
+          />
+          <span>작성한 프로필 정보 제공 및 매칭 프로세스 진행에 동의합니다.</span>
+        </label>
+
+        {/* 신규 체크박스: 개인정보 수집 및 이용 동의 + 우측 [자세히보기] */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            gap: '8px',
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: 'var(--text-muted)',
+              flex: 1,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={agreedPrivacy}
+              onChange={(e) => setAgreedPrivacy(e.target.checked)}
+              style={{ width: '16px', height: '16px', accentColor: '#ff4370', cursor: 'pointer' }}
+            />
+            <span>
+              <b style={{ color: '#ff85a1', marginRight: '5px' }}>[필수]</b>
+              개인정보 수집 및 이용에 동의합니다.
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setIsPrivacyModalOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              padding: '4px 6px',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+              whiteSpace: 'nowrap',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#ff85a1')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            자세히보기 〉
+          </button>
+        </div>
+      </div>
 
       {/* 최종 제출 버튼 */}
       <button
         type="button"
         className="btn-next"
         style={{ width: '100%', fontSize: '16px', padding: '16px 20px' }}
-        disabled={!agreed || isSubmitting}
+        disabled={!agreedMatch || !agreedPrivacy || isSubmitting}
         onClick={onSubmit}
       >
         {isSubmitting ? (
@@ -185,6 +248,13 @@ export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, e
           </>
         )}
       </button>
+
+      {/* 개인정보 수집 및 이용 동의서 모달 */}
+      <PrivacyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        onAgree={() => setAgreedPrivacy(true)}
+      />
     </div>
   );
 }

@@ -758,20 +758,21 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             tabIndex={0}
             style={{
               width: '180px',
-              height: '36px',
+              height: '44px',
               margin: '-12px auto 0 auto',
+              paddingTop: '12px',
               position: 'relative',
               zIndex: 1,
-              background: 'rgba(22, 26, 40, 0.92)',
+              background: 'rgba(28, 32, 50, 0.95)',
               backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              borderRadius: '14px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.55)',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 255, 255, 0.08)',
               cursor: 'pointer',
-              transition: 'transform 0.2s',
+              transition: 'transform 0.2s, box-shadow 0.2s',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(2px)';
@@ -785,7 +786,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               style={{
                 position: 'absolute',
                 left: '-6px',
-                top: '50%',
+                top: 'calc(50% + 6px)',
                 transform: 'translateY(-50%)',
                 width: '12px',
                 height: '12px',
@@ -804,7 +805,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 maxWidth: '28px',
                 objectFit: 'contain',
                 display: 'block',
-                filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.45))',
+                filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.65))',
                 userSelect: 'none',
                 pointerEvents: 'none',
               }}
@@ -815,7 +816,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               style={{
                 position: 'absolute',
                 right: '-6px',
-                top: '50%',
+                top: 'calc(50% + 6px)',
                 transform: 'translateY(-50%)',
                 width: '12px',
                 height: '12px',

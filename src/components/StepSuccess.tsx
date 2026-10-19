@@ -10,9 +10,10 @@ interface Props {
   isDemo?: boolean;
   onReset: () => void;
   onViewList?: () => void;
+  onViewMyProfile?: () => void;
 }
 
-export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewList }: Props) {
+export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewList, onViewMyProfile }: Props) {
   useEffect(() => {
     // Fire celebratory confetti!
     try {
@@ -95,12 +96,23 @@ export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewLi
 
       {/* 액션 버튼들 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {onViewList && (
+        {onViewMyProfile && (
           <button
             type="button"
             className="btn-next"
+            onClick={onViewMyProfile}
+            style={{ width: '100%', background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)' }}
+          >
+            💫 내 프로필 카드 확인하기
+          </button>
+        )}
+
+        {onViewList && (
+          <button
+            type="button"
+            className="btn-prev"
             onClick={onViewList}
-            style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' }}
+            style={{ width: '100%', justifyContent: 'center' }}
           >
             📋 등록된 프로필 목록 확인하기
           </button>

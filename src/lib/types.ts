@@ -1,4 +1,5 @@
 export interface ProfileData {
+  id?: string;
   name: string;
   nickname: string;
   phone: string;
@@ -10,6 +11,7 @@ export interface ProfileData {
   preferredAppearanceDetail: string; // 외적인 구체적인 상 설명
   preferredPartnerDetail: string;
   selfIntro: string;
+  created_at?: string;
 }
 
 export interface AnimalOption {

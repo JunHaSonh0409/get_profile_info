@@ -23,35 +23,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if phone number is already registered in Supabase
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey, {
-          auth: { persistSession: false },
-        });
 
-        const { data: existingRows, error: searchError } = await supabase
-          .from('profiles')
-          .select('id, phone');
-
-        if (!searchError && existingRows) {
-          const isDuplicate = existingRows.some(
-            (row) => String(row.phone || '').replace(/[^0-9]/g, '') === cleanPhone
-          );
-          if (isDuplicate) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: '이미 등록된 전화번호입니다. 1인당 1개의 프로필만 등록할 수 있습니다.',
-              },
-              { status: 409 }
-            );
-          }
-        }
-      } catch (checkErr) {
-        console.warn('Phone uniqueness pre-check warning:', checkErr);
-      }
-    }
 
     // Generate random 4-digit code (e.g., 4920)
     const randomCode = Math.floor(1000 + Math.random() * 9000);

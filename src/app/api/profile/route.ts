@@ -21,7 +21,7 @@ const isConfigured = Boolean(
 // Standard CORS and Cache-Control headers for Vercel serverless functions
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
   'Pragma': 'no-cache',
@@ -184,13 +184,120 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const {
+      id,
+      phone,
+      name,
+      nickname,
+      gender,
+      age,
+      height,
+      location,
+      preferredAnimals,
+      preferredAppearanceDetail,
+      preferredPartnerDetail,
+      selfIntro,
+    } = body;
+
+    const cleanPhone = String(phone || '').replace(/[^0-9]/g, '').trim();
+
+    if (!cleanPhone && !id) {
+      return NextResponse.json(
+        { success: false, error: '수정할 프로필의 전화번호 또는 식별자가 필요합니다.' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    if (isConfigured) {
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false },
+      });
+
+      const updatePayload: Record<string, unknown> = {
+        name: name?.trim(),
+        nickname: nickname?.trim(),
+        gender,
+        age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
+        height: Number(height),
+        location: location?.trim(),
+        preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],
+        preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
+        preferred_partner_detail: preferredPartnerDetail?.trim(),
+        self_intro: selfIntro?.trim(),
+      };
+
+      let query = supabase.from('profiles').update(updatePayload);
+      if (id) {
+        query = query.eq('id', id);
+      } else {
+        query = query.eq('phone', cleanPhone);
+      }
+
+      let { data, error } = await query.select().single();
+
+      // Fallback if preferred_appearance_detail column doesn't exist yet
+      if (error && error.code === '42703') {
+        const fallbackPayload = { ...updatePayload };
+        delete fallbackPayload.preferred_appearance_detail;
+        let retryQuery = supabase.from('profiles').update(fallbackPayload);
+        if (id) {
+          retryQuery = retryQuery.eq('id', id);
+        } else {
+          retryQuery = retryQuery.eq('phone', cleanPhone);
+        }
+        const retryResult = await retryQuery.select().single();
+        data = retryResult.data;
+        error = retryResult.error;
+      }
+
+      if (error) {
+        console.error('Supabase Profile Update Error:', error);
+        return NextResponse.json(
+          { success: false, error: `프로필 수정 실패: ${error.message}` },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: '프로필이 성공적으로 수정되었습니다.',
+          data,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    // Demo mode fallback
+    return NextResponse.json(
+      {
+        success: true,
+        message: '프로필이 수정되었습니다. (데모 모드)',
+        data: body,
+        isDemo: true,
+      },
+      { headers: corsHeaders }
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '서버 오류가 발생했습니다.';
+    return NextResponse.json({ success: false, error: msg }, { status: 500, headers: corsHeaders });
+  }
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const phoneParam = searchParams.get('phone');
+
   if (!isConfigured) {
     return NextResponse.json(
       {
         success: true,
         isDemo: true,
-        data: [],
+        data: phoneParam ? null : [],
+        exists: false,
         message: 'Supabase 연결 정보가 설정되지 않았습니다.',
       },
       { headers: corsHeaders }
@@ -201,6 +308,31 @@ export async function GET() {
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false },
     });
+
+    if (phoneParam) {
+      const cleanTarget = phoneParam.replace(/[^0-9]/g, '');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (error) {
+        console.error('Supabase fetch error for phone:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
+      }
+
+      const match = data?.find(
+        (row) => String(row.phone || '').replace(/[^0-9]/g, '') === cleanTarget
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          exists: Boolean(match),
+          data: match || null,
+        },
+        { headers: corsHeaders }
+      );
+    }
 
     const { data, error } = await supabase
       .from('profiles')

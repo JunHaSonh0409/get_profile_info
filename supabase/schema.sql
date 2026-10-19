@@ -56,6 +56,14 @@ FOR SELECT
 TO anon, authenticated
 USING (true);
 
+-- 회원이 자신의 프로필을 수정(UPDATE)할 수 있도록 허용하는 정책
+CREATE POLICY "프로필 수정 정책" 
+ON public.profiles 
+FOR UPDATE 
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
 -- 인덱스 생성 (조회 성능 최적화)
 CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON public.profiles(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_profiles_gender ON public.profiles(gender);

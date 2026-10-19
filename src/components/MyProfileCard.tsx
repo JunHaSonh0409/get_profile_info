@@ -105,6 +105,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
   const currentPhotos = profile.photos && profile.photos.length > 0 ? profile.photos : [];
   const editPhotos = editData.photos && editData.photos.length > 0 ? editData.photos : [];
 
+  // Active photo for the dynamic blurred background and central display
+  const activePhoto = currentPhotos[activePhotoIdx] || (currentPhotos.length > 0 ? currentPhotos[0] : null);
+
   // Next / Prev photo handlers
   const handlePrevPhoto = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -306,18 +309,18 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+              background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '18px',
-              boxShadow: '0 0 15px rgba(255, 80, 40, 0.4)',
+              boxShadow: '0 0 15px rgba(255, 67, 112, 0.4)',
             }}
           >
             💫
           </div>
           <span style={{ fontSize: '17px', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
-            내 프로필 <span style={{ color: '#ff5028' }}>카드</span>
+            내 프로필 <span style={{ color: '#ff4370' }}>카드</span>
           </span>
         </div>
 
@@ -388,11 +391,11 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. COMPACT GLASSMORPHIC CARD VIEW (Matches Reference Asset Exactly)       */}
+      {/* 1. COMPACT PROFILE CARD VIEW (Photo Backdrop Gradient Aesthetic)          */}
       {/* ========================================================================= */}
       {!isExpanded && !isEditing ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {/* Outer Glass Card */}
+          {/* Outer Glass Card Container */}
           <div
             onClick={() => setIsExpanded(true)}
             role="button"
@@ -402,310 +405,353 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               maxWidth: '380px',
               borderRadius: '38px',
               border: '1px solid rgba(255, 255, 255, 0.22)',
-              background: 'linear-gradient(180deg, rgba(28, 30, 42, 0.65) 0%, rgba(38, 25, 28, 0.62) 52%, rgba(220, 68, 30, 0.85) 85%, rgba(245, 85, 35, 0.98) 100%)',
-              backdropFilter: 'blur(30px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65), 0 15px 35px rgba(245, 80, 35, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.35)',
-              padding: '16px 16px 24px 16px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
               position: 'relative',
               cursor: 'pointer',
               transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease',
               userSelect: 'none',
               overflow: 'hidden',
+              zIndex: 2,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = '0 30px 70px rgba(0, 0, 0, 0.75), 0 20px 45px rgba(245, 80, 35, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.45)';
+              e.currentTarget.style.boxShadow = '0 32px 75px rgba(0, 0, 0, 0.85), inset 0 1px 2px rgba(255, 255, 255, 0.35)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.65), 0 15px 35px rgba(245, 80, 35, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
+              e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.25)';
             }}
           >
-            {/* Inner Photo Frame (where "moments" is located in reference asset) */}
-            <div
-              style={{
-                width: '100%',
-                height: '380px',
-                borderRadius: '26px',
-                overflow: 'hidden',
-                position: 'relative',
-                background: currentPhotos.length > 0 ? '#111' : 'linear-gradient(135deg, #f5eee4 0%, #ece3d4 100%)',
-                boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.2), 0 8px 20px rgba(0, 0, 0, 0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              {currentPhotos.length > 0 ? (
-                <>
-                  {/* Photo Display */}
-                  <img
-                    src={currentPhotos[activePhotoIdx]}
-                    alt={`${profile.nickname}의 사진 ${activePhotoIdx + 1}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                      transition: 'opacity 0.25s ease',
-                    }}
-                  />
-
-                  {/* Left / Right Navigation Buttons (Visible when multiple photos exist) */}
-                  {currentPhotos.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handlePrevPhoto}
-                        aria-label="이전 사진"
-                        style={{
-                          position: 'absolute',
-                          left: '10px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          background: 'rgba(0, 0, 0, 0.45)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          color: '#fff',
-                          fontSize: '18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                          zIndex: 2,
-                        }}
-                      >
-                        ‹
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleNextPhoto}
-                        aria-label="다음 사진"
-                        style={{
-                          position: 'absolute',
-                          right: '10px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '50%',
-                          background: 'rgba(0, 0, 0, 0.45)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          color: '#fff',
-                          fontSize: '18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                          zIndex: 2,
-                        }}
-                      >
-                        ›
-                      </button>
-                    </>
-                  )}
-
-                  {/* Top-Right Photo Count Pill */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      background: 'rgba(0, 0, 0, 0.55)',
-                      backdropFilter: 'blur(8px)',
-                      color: '#ffffff',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      padding: '4px 9px',
-                      borderRadius: '999px',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      zIndex: 2,
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    {activePhotoIdx + 1} / {currentPhotos.length}
-                  </div>
-
-                  {/* Bottom Center Dots Indicator */}
-                  {currentPhotos.length > 1 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        zIndex: 2,
-                        background: 'rgba(0, 0, 0, 0.4)',
-                        backdropFilter: 'blur(8px)',
-                        padding: '4px 8px',
-                        borderRadius: '999px',
-                      }}
-                    >
-                      {currentPhotos.map((_, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            width: activePhotoIdx === idx ? '16px' : '6px',
-                            height: '6px',
-                            borderRadius: '999px',
-                            background: activePhotoIdx === idx ? '#ff5028' : 'rgba(255, 255, 255, 0.5)',
-                            transition: 'all 0.22s ease',
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Empty state matching the reference asset's "moments" aesthetic */
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    width: '100%',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: '"Outfit", "Georgia", serif',
-                      fontStyle: 'italic',
-                      fontWeight: 800,
-                      fontSize: '44px',
-                      color: '#ff5028',
-                      letterSpacing: '-1.5px',
-                      display: 'block',
-                      marginBottom: '10px',
-                      textShadow: '0 2px 10px rgba(255, 80, 40, 0.18)',
-                    }}
-                  >
-                    moments
-                  </span>
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      color: '#716556',
-                      fontWeight: 600,
-                      margin: '0 0 16px 0',
-                    }}
-                  >
-                    나만의 멋진 순간들을 공유해보세요
-                  </p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      fileInputRef.current?.click();
-                    }}
-                    style={{
-                      background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: '12.5px',
-                      fontWeight: 700,
-                      padding: '8px 16px',
-                      borderRadius: '999px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(255, 80, 40, 0.35)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    📷 사진 등록하기 (+)
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Text Area (Matches Reference Asset: Greeting Card & Subtitle) */}
-            <div style={{ padding: '16px 8px 4px 8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h2
-                  style={{
-                    fontSize: '25px',
-                    fontWeight: 800,
-                    color: '#ffffff',
-                    margin: 0,
-                    letterSpacing: '-0.5px',
-                    textShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                  }}
-                >
-                  {profile.nickname || '익명 회원'}
-                </h2>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    backdropFilter: 'blur(6px)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    padding: '3px 9px',
-                    borderRadius: '999px',
-                  }}
-                >
-                  ✓ 휴대폰인증
-                </span>
-              </div>
-
-              {/* Subtitle: Location, Age, Gender, Height */}
-              <p
-                style={{
-                  fontSize: '14px',
-                  color: 'rgba(255, 255, 255, 0.92)',
-                  fontWeight: 500,
-                  margin: '4px 0 12px 0',
-                  letterSpacing: '-0.2px',
-                  textShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
-                }}
-              >
-                {profile.location || '지역 미입력'} · {formattedAge} · {profile.gender || '성별'}
-                {profile.height ? ` · ${profile.height}cm` : ''}
-              </p>
-
-              {/* Expand Hint Bar */}
+            {/* 1. Blurred Photo Backdrop Layer (Sampled from selected profile photo as in the reference asset) */}
+            {activePhoto ? (
               <div
                 style={{
+                  position: 'absolute',
+                  top: '-40px',
+                  left: '-40px',
+                  right: '-40px',
+                  bottom: '-40px',
+                  backgroundImage: `url(${activePhoto})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(32px) brightness(0.7) saturate(130%)',
+                  transform: 'scale(1.2)',
+                  zIndex: 0,
+                  transition: 'background-image 0.4s ease',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(180deg, rgba(28, 32, 48, 0.85) 0%, rgba(14, 16, 26, 0.96) 100%)',
+                  zIndex: 0,
+                }}
+              />
+            )}
+
+            {/* 2. Smooth Vignette Gradient Overlay (ensures text readability and depth) */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(180deg, rgba(10, 12, 20, 0.2) 0%, rgba(10, 12, 20, 0.45) 50%, rgba(10, 12, 20, 0.82) 80%, rgba(10, 12, 20, 0.96) 100%)',
+                zIndex: 1,
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* 3. Card Content Layer */}
+            <div style={{ position: 'relative', zIndex: 2, padding: '16px 16px 22px 16px' }}>
+              {/* Inner Photo Frame */}
+              <div
+                style={{
+                  width: '100%',
+                  height: '380px',
+                  borderRadius: '26px',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  background: activePhoto ? '#000000' : 'rgba(255, 255, 255, 0.05)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.22)',
+                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.45)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  background: 'rgba(255, 255, 255, 0.14)',
-                  backdropFilter: 'blur(8px)',
-                  borderRadius: '999px',
-                  padding: '7px 12px',
-                  border: '1px solid rgba(255, 255, 255, 0.22)',
-                  color: '#ffffff',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  transition: 'all 0.2s',
                 }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
-                <span>✨ 카드를 누르면 상세 정보가 펼쳐집니다</span>
-                <span style={{ fontSize: '13px' }}>▾</span>
+                {activePhoto ? (
+                  <>
+                    {/* Photo Display */}
+                    <img
+                      src={activePhoto}
+                      alt={`${profile.nickname}의 사진 ${activePhotoIdx + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block',
+                        transition: 'opacity 0.25s ease',
+                      }}
+                    />
+
+                    {/* Left / Right Navigation Buttons (Visible when multiple photos exist) */}
+                    {currentPhotos.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handlePrevPhoto}
+                          aria-label="이전 사진"
+                          style={{
+                            position: 'absolute',
+                            left: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '50%',
+                            background: 'rgba(0, 0, 0, 0.5)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: '#fff',
+                            fontSize: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            zIndex: 3,
+                          }}
+                        >
+                          ‹
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleNextPhoto}
+                          aria-label="다음 사진"
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '50%',
+                            background: 'rgba(0, 0, 0, 0.5)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: '#fff',
+                            fontSize: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            zIndex: 3,
+                          }}
+                        >
+                          ›
+                        </button>
+                      </>
+                    )}
+
+                    {/* Top-Right Photo Count Pill */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(0, 0, 0, 0.6)',
+                        backdropFilter: 'blur(8px)',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        padding: '4px 9px',
+                        borderRadius: '999px',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        zIndex: 3,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {activePhotoIdx + 1} / {currentPhotos.length}
+                    </div>
+
+                    {/* Bottom Center Dots Indicator */}
+                    {currentPhotos.length > 1 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          zIndex: 3,
+                          background: 'rgba(0, 0, 0, 0.45)',
+                          backdropFilter: 'blur(8px)',
+                          padding: '4px 8px',
+                          borderRadius: '999px',
+                        }}
+                      >
+                        {currentPhotos.map((_, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              width: activePhotoIdx === idx ? '16px' : '6px',
+                              height: '6px',
+                              borderRadius: '999px',
+                              background: activePhotoIdx === idx ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                              boxShadow: activePhotoIdx === idx ? '0 0 6px rgba(255, 255, 255, 0.8)' : 'none',
+                              transition: 'all 0.22s ease',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Empty state matching the reference asset's "moments" aesthetic */
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      width: '100%',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: '"Outfit", "Georgia", serif',
+                        fontStyle: 'italic',
+                        fontWeight: 800,
+                        fontSize: '44px',
+                        color: '#ffffff',
+                        letterSpacing: '-1.5px',
+                        display: 'block',
+                        marginBottom: '10px',
+                        textShadow: '0 2px 14px rgba(255, 255, 255, 0.25)',
+                      }}
+                    >
+                      moments
+                    </span>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontWeight: 600,
+                        margin: '0 0 16px 0',
+                      }}
+                    >
+                      나만의 멋진 순간들을 공유해보세요
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        padding: '8px 18px',
+                        borderRadius: '999px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(255, 67, 112, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      📷 사진 등록하기 (+)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Text Area (Greeting & Specs) */}
+              <div style={{ padding: '16px 6px 4px 6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h2
+                    style={{
+                      fontSize: '25px',
+                      fontWeight: 800,
+                      color: '#ffffff',
+                      margin: 0,
+                      letterSpacing: '-0.5px',
+                      textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+                    }}
+                  >
+                    {profile.nickname || '익명 회원'}
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      background: 'rgba(255, 255, 255, 0.16)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      padding: '3px 9px',
+                      borderRadius: '999px',
+                    }}
+                  >
+                    ✓ 휴대폰인증
+                  </span>
+                </div>
+
+                {/* Subtitle: Location, Age, Gender, Height */}
+                <p
+                  style={{
+                    fontSize: '14px',
+                    color: 'rgba(255, 255, 255, 0.92)',
+                    fontWeight: 500,
+                    margin: '5px 0 12px 0',
+                    letterSpacing: '-0.2px',
+                    textShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
+                  }}
+                >
+                  {profile.location || '지역 미입력'} · {formattedAge} · {profile.gender || '성별'}
+                  {profile.height ? ` · ${profile.height}cm` : ''}
+                </p>
+
+                {/* Expand Hint Bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '999px',
+                    padding: '8px 12px',
+                    border: '1px solid rgba(255, 255, 255, 0.18)',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <span>✨ 카드를 누르면 상세 정보가 펼쳐집니다</span>
+                  <span style={{ fontSize: '13px' }}>▾</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom Layered Ticket Tab (Protruding Orange Tab with Notches from Reference Asset) */}
+          {/* Bottom Layered Ticket Tab (Frosted Glass Finish with Circular Cutout Notches) */}
           <div
             onClick={() => setIsExpanded(true)}
             role="button"
@@ -716,12 +762,14 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               margin: '-12px auto 0 auto',
               position: 'relative',
               zIndex: 1,
-              background: '#ff5028',
+              background: 'rgba(22, 26, 40, 0.92)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(245, 80, 40, 0.5)',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.55)',
               cursor: 'pointer',
               transition: 'transform 0.2s',
             }}
@@ -785,9 +833,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
         <div
           className="profile-card animate-fade"
           style={{
-            background: 'linear-gradient(180deg, rgba(25, 28, 44, 0.88) 0%, rgba(20, 22, 36, 0.94) 100%)',
-            border: '1px solid rgba(255, 80, 40, 0.28)',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 80, 40, 0.2)',
+            background: 'linear-gradient(180deg, rgba(22, 25, 40, 0.92) 0%, rgba(16, 18, 30, 0.96) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65)',
             borderRadius: '32px',
             padding: '28px 24px',
           }}
@@ -845,7 +893,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 type="button"
                 onClick={() => setIsEditing(true)}
                 style={{
-                  background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                  background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '10px',
@@ -853,7 +901,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                   fontSize: '12.5px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(255, 80, 40, 0.35)',
+                  boxShadow: '0 4px 12px rgba(255, 67, 112, 0.35)',
                 }}
               >
                 ✏️ 수정
@@ -935,7 +983,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                   onTouchEnd={handleTouchEnd}
                 >
                   <img
-                    src={currentPhotos[activePhotoIdx]}
+                    src={activePhoto || currentPhotos[0]}
                     alt={`프로필 사진 ${activePhotoIdx + 1}`}
                     style={{
                       width: '100%',
@@ -1016,7 +1064,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                           overflow: 'hidden',
                           flexShrink: 0,
                           cursor: 'pointer',
-                          border: activePhotoIdx === idx ? '2px solid #ff5028' : '2px solid transparent',
+                          border: activePhotoIdx === idx ? '2px solid #ff4370' : '2px solid transparent',
                           opacity: activePhotoIdx === idx ? 1 : 0.65,
                           transition: 'all 0.2s',
                         }}
@@ -1051,7 +1099,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                    background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
                     border: 'none',
                     color: '#fff',
                     borderRadius: '8px',
@@ -1100,9 +1148,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                         fontSize: '12px',
                         padding: '4px 10px',
                         borderRadius: '20px',
-                        background: 'rgba(255, 80, 40, 0.15)',
+                        background: 'rgba(255, 67, 112, 0.15)',
                         color: '#ff85a1',
-                        border: '1px solid rgba(255, 80, 40, 0.3)',
+                        border: '1px solid rgba(255, 67, 112, 0.3)',
                         fontWeight: 600,
                       }}
                     >
@@ -1182,13 +1230,13 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             style={{
               padding: '16px',
               borderRadius: '14px',
-              background: 'rgba(255, 80, 40, 0.08)',
-              border: '1px solid rgba(255, 80, 40, 0.25)',
+              background: 'rgba(139, 92, 246, 0.1)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
               textAlign: 'center',
               marginBottom: '20px',
             }}
           >
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#ff9d80', marginBottom: '4px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4b5fd', marginBottom: '4px' }}>
               ✨ 1:1 인연 매칭 접수 완료 상태
             </div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
@@ -1213,7 +1261,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               style={{
                 flex: 1.6,
                 justifyContent: 'center',
-                background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
               }}
             >
               ✏️ 프로필 정보 수정
@@ -1242,8 +1290,8 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingPhoto || editPhotos.length >= 6}
                   style={{
-                    background: 'rgba(255, 80, 40, 0.15)',
-                    border: '1px solid rgba(255, 80, 40, 0.4)',
+                    background: 'rgba(255, 67, 112, 0.15)',
+                    border: '1px solid rgba(255, 67, 112, 0.4)',
                     color: '#ff85a1',
                     fontSize: '11.5px',
                     fontWeight: 700,
@@ -1304,7 +1352,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                             bottom: '0',
                             left: '0',
                             right: '0',
-                            background: 'rgba(255, 80, 40, 0.85)',
+                            background: 'rgba(255, 67, 112, 0.9)',
                             color: '#fff',
                             fontSize: '9px',
                             fontWeight: 700,
@@ -1387,9 +1435,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                       style={{
                         padding: '8px 14px',
                         borderRadius: '20px',
-                        border: isSelected ? '1px solid #ff5028' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: isSelected ? 'rgba(255, 80, 40, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                        color: isSelected ? '#ff9d80' : 'var(--text-muted)',
+                        border: isSelected ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isSelected ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                        color: isSelected ? '#ff85a1' : 'var(--text-muted)',
                         fontSize: '13px',
                         fontWeight: isSelected ? 700 : 500,
                         cursor: 'pointer',
@@ -1466,7 +1514,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 style={{
                   flex: 2,
                   justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                  background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
                 }}
                 disabled={isSaving || !editData.nickname.trim()}
               >

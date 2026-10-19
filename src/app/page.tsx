@@ -73,6 +73,14 @@ export default function ProfilePage() {
           const res = await fetch(`/api/profile?phone=${storedPhone}`);
           const result = await res.json();
           if (result.exists && result.data) {
+            const queryPhoto = urlParams.get('photo');
+            if (queryPhoto && (!result.data.photos || result.data.photos.length === 0)) {
+              result.data.photos = [
+                queryPhoto === 'demo'
+                  ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+                  : queryPhoto,
+              ];
+            }
             setAuthPhone(storedPhone);
             setMemberProfile(result.data);
             setViewMode('MY_PROFILE');

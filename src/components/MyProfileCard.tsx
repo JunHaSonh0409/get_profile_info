@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ProfileData, ANIMAL_OPTIONS } from '@/lib/types';
 import StepLocation from './StepLocation';
 
@@ -10,11 +10,219 @@ interface Props {
   onLogout: () => void;
 }
 
+// Compress client-side images before uploading/storing as base64
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('파일을 읽는 중 오류가 발생했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Mask phone number as 010-0xxx-xxxx as specified
+function formatMaskedPhone(phoneStr: string): string {
+  const digits = String(phoneStr || '').replace(/[^0-9]/g, '');
+  if (digits.length >= 11) {
+    const prefix = digits.slice(0, 3);
+    const midFirst = digits.slice(3, 4);
+    return `${prefix}-${midFirst}xxx-xxxx`;
+  } else if (digits.length === 10) {
+    const prefix = digits.slice(0, 3);
+    const midFirst = digits.slice(3, 4);
+    return `${prefix}-${midFirst}xx-xxxx`;
+  }
+  return '010-0xxx-xxxx';
+}
+
 export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<ProfileData>(profile);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Photo Swiper State
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchDeltaX, setTouchDeltaX] = useState(0);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync profile photos with local storage backup so they persist reliably
+  useEffect(() => {
+    const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone) {
+      const cached = localStorage.getItem(`orbit_photos_${cleanPhone}`);
+      if (cached && (!profile.photos || profile.photos.length === 0)) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const updated = { ...profile, photos: parsed };
+            onUpdate(updated);
+            setEditData(updated);
+          }
+        } catch (e) {
+          console.error('Failed to parse cached photos:', e);
+        }
+      }
+    }
+  }, [profile.phone]);
+
+  const currentPhotos = profile.photos && profile.photos.length > 0 ? profile.photos : [];
+  const editPhotos = editData.photos && editData.photos.length > 0 ? editData.photos : [];
+
+  // Next / Prev photo handlers
+  const handlePrevPhoto = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (currentPhotos.length <= 1) return;
+    setActivePhotoIdx((prev) => (prev > 0 ? prev - 1 : currentPhotos.length - 1));
+  };
+
+  const handleNextPhoto = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (currentPhotos.length <= 1) return;
+    setActivePhotoIdx((prev) => (prev < currentPhotos.length - 1 ? prev + 1 : 0));
+  };
+
+  // Touch swipe gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (currentPhotos.length <= 1) return;
+    setTouchStartX(e.touches[0].clientX);
+    setTouchDeltaX(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX === null || currentPhotos.length <= 1) return;
+    const currentX = e.touches[0].clientX;
+    setTouchDeltaX(currentX - touchStartX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || currentPhotos.length <= 1) return;
+    const threshold = 40; // min swipe distance in px
+    if (touchDeltaX > threshold) {
+      // Swiped right -> go to prev
+      setActivePhotoIdx((prev) => (prev > 0 ? prev - 1 : currentPhotos.length - 1));
+    } else if (touchDeltaX < -threshold) {
+      // Swiped left -> go to next
+      setActivePhotoIdx((prev) => (prev < currentPhotos.length - 1 ? prev + 1 : 0));
+    }
+    setTouchStartX(null);
+    setTouchDeltaX(0);
+  };
+
+  // Upload photos
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingPhoto(true);
+    setSaveMessage(null);
+
+    try {
+      const newPhotoPromises: Promise<string>[] = [];
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].type.startsWith('image/')) {
+          newPhotoPromises.push(compressImage(files[i]));
+        }
+      }
+
+      const compressedBase64s = await Promise.all(newPhotoPromises);
+      const combined = [...(isEditing ? editPhotos : currentPhotos), ...compressedBase64s].slice(0, 6);
+
+      const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        localStorage.setItem(`orbit_photos_${cleanPhone}`, JSON.stringify(combined));
+      }
+
+      if (isEditing) {
+        setEditData((prev) => ({ ...prev, photos: combined }));
+      } else {
+        // Direct save when added in view mode
+        const updated = { ...profile, photos: combined };
+        onUpdate(updated);
+        setEditData(updated);
+
+        // Save to DB in background
+        fetch('/api/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        }).catch((err) => console.warn('Background photo update err:', err));
+      }
+
+      setActivePhotoIdx(combined.length - 1);
+      setSaveMessage({ type: 'success', text: `사진 ${compressedBase64s.length}장이 추가되었습니다.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '사진 처리 실패';
+      setSaveMessage({ type: 'error', text: msg });
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (idxToRemove: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const targetPhotos = isEditing ? editPhotos : currentPhotos;
+    const filtered = targetPhotos.filter((_, idx) => idx !== idxToRemove);
+
+    const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone) {
+      localStorage.setItem(`orbit_photos_${cleanPhone}`, JSON.stringify(filtered));
+    }
+
+    if (isEditing) {
+      setEditData((prev) => ({ ...prev, photos: filtered }));
+    } else {
+      const updated = { ...profile, photos: filtered };
+      onUpdate(updated);
+      setEditData(updated);
+      fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      }).catch((err) => console.warn('Background photo remove err:', err));
+    }
+
+    if (activePhotoIdx >= filtered.length) {
+      setActivePhotoIdx(Math.max(0, filtered.length - 1));
+    }
+  };
 
   const handleAnimalToggle = (animalLabel: string) => {
     setEditData((prev) => {
@@ -42,7 +250,13 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
         throw new Error(result.error || '수정 중 오류가 발생했습니다.');
       }
 
-      onUpdate(result.data || editData);
+      const updated = result.data || editData;
+      const cleanPhone = String(updated.phone || profile.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone && updated.photos) {
+        localStorage.setItem(`orbit_photos_${cleanPhone}`, JSON.stringify(updated.photos));
+      }
+
+      onUpdate(updated);
       setSaveMessage({ type: 'success', text: '프로필이 성공적으로 수정되었습니다!' });
       setIsEditing(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -60,9 +274,24 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
     setSaveMessage(null);
   };
 
+  // Age string formatting
+  const formattedAge = String(profile.age || '').endsWith('년생')
+    ? profile.age
+    : `${profile.age}년생`;
+
   return (
     <div className="animate-fade" style={{ width: '100%', maxWidth: '580px', margin: '0 auto' }}>
-      {/* Top Controls */}
+      {/* Hidden file input for adding photos */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handlePhotoUpload}
+        style={{ display: 'none' }}
+      />
+
+      {/* Top Navigation Bar */}
       <div
         style={{
           display: 'flex',
@@ -77,36 +306,59 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
+              background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '18px',
+              boxShadow: '0 0 15px rgba(255, 80, 40, 0.4)',
             }}
           >
             💫
           </div>
-          <span style={{ fontSize: '17px', fontWeight: 800, color: '#fff' }}>
-            내 프로필 <span style={{ color: '#ff4370' }}>카드</span>
+          <span style={{ fontSize: '17px', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
+            내 프로필 <span style={{ color: '#ff5028' }}>카드</span>
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onLogout}
-          style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: 'var(--text-muted)',
-            borderRadius: '999px',
-            padding: '6px 14px',
-            fontSize: '12px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          🚪 로그아웃
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isExpanded && !isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#fff',
+                borderRadius: '999px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              ✕ 카드 접기
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: 'var(--text-muted)',
+              borderRadius: '999px',
+              padding: '6px 14px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            🚪 로그아웃
+          </button>
+        </div>
       </div>
 
       {saveMessage && (
@@ -119,16 +371,428 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             background: saveMessage.type === 'success' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
             color: saveMessage.type === 'success' ? '#34d399' : '#fca5a5',
             border: `1px solid ${saveMessage.type === 'success' ? 'rgba(52, 211, 153, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          {saveMessage.text}
+          <span>{saveMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setSaveMessage(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px' }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* VIEW MODE */}
-      {!isEditing ? (
-        <div className="profile-card">
-          {/* Card Header */}
+      {/* ========================================================================= */}
+      {/* 1. COMPACT GLASSMORPHIC CARD VIEW (Matches Reference Asset Exactly)       */}
+      {/* ========================================================================= */}
+      {!isExpanded && !isEditing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Outer Glass Card */}
+          <div
+            onClick={() => setIsExpanded(true)}
+            role="button"
+            tabIndex={0}
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              borderRadius: '38px',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              background: 'linear-gradient(180deg, rgba(28, 30, 42, 0.65) 0%, rgba(38, 25, 28, 0.62) 52%, rgba(220, 68, 30, 0.85) 85%, rgba(245, 85, 35, 0.98) 100%)',
+              backdropFilter: 'blur(30px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65), 0 15px 35px rgba(245, 80, 35, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.35)',
+              padding: '16px 16px 24px 16px',
+              position: 'relative',
+              cursor: 'pointer',
+              transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease',
+              userSelect: 'none',
+              overflow: 'hidden',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 30px 70px rgba(0, 0, 0, 0.75), 0 20px 45px rgba(245, 80, 35, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.45)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 25px 60px rgba(0, 0, 0, 0.65), 0 15px 35px rgba(245, 80, 35, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
+            }}
+          >
+            {/* Inner Photo Frame (where "moments" is located in reference asset) */}
+            <div
+              style={{
+                width: '100%',
+                height: '380px',
+                borderRadius: '26px',
+                overflow: 'hidden',
+                position: 'relative',
+                background: currentPhotos.length > 0 ? '#111' : 'linear-gradient(135deg, #f5eee4 0%, #ece3d4 100%)',
+                boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.2), 0 8px 20px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {currentPhotos.length > 0 ? (
+                <>
+                  {/* Photo Display */}
+                  <img
+                    src={currentPhotos[activePhotoIdx]}
+                    alt={`${profile.nickname}의 사진 ${activePhotoIdx + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                      transition: 'opacity 0.25s ease',
+                    }}
+                  />
+
+                  {/* Left / Right Navigation Buttons (Visible when multiple photos exist) */}
+                  {currentPhotos.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePrevPhoto}
+                        aria-label="이전 사진"
+                        style={{
+                          position: 'absolute',
+                          left: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '50%',
+                          background: 'rgba(0, 0, 0, 0.45)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          color: '#fff',
+                          fontSize: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          zIndex: 2,
+                        }}
+                      >
+                        ‹
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleNextPhoto}
+                        aria-label="다음 사진"
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '50%',
+                          background: 'rgba(0, 0, 0, 0.45)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          color: '#fff',
+                          fontSize: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          zIndex: 2,
+                        }}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+
+                  {/* Top-Right Photo Count Pill */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      background: 'rgba(0, 0, 0, 0.55)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#ffffff',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      padding: '4px 9px',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      zIndex: 2,
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    {activePhotoIdx + 1} / {currentPhotos.length}
+                  </div>
+
+                  {/* Bottom Center Dots Indicator */}
+                  {currentPhotos.length > 1 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        zIndex: 2,
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        backdropFilter: 'blur(8px)',
+                        padding: '4px 8px',
+                        borderRadius: '999px',
+                      }}
+                    >
+                      {currentPhotos.map((_, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            width: activePhotoIdx === idx ? '16px' : '6px',
+                            height: '6px',
+                            borderRadius: '999px',
+                            background: activePhotoIdx === idx ? '#ff5028' : 'rgba(255, 255, 255, 0.5)',
+                            transition: 'all 0.22s ease',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Empty state matching the reference asset's "moments" aesthetic */
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    width: '100%',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: '"Outfit", "Georgia", serif',
+                      fontStyle: 'italic',
+                      fontWeight: 800,
+                      fontSize: '44px',
+                      color: '#ff5028',
+                      letterSpacing: '-1.5px',
+                      display: 'block',
+                      marginBottom: '10px',
+                      textShadow: '0 2px 10px rgba(255, 80, 40, 0.18)',
+                    }}
+                  >
+                    moments
+                  </span>
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      color: '#716556',
+                      fontWeight: 600,
+                      margin: '0 0 16px 0',
+                    }}
+                  >
+                    나만의 멋진 순간들을 공유해보세요
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      padding: '8px 16px',
+                      borderRadius: '999px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(255, 80, 40, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    📷 사진 등록하기 (+)
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Text Area (Matches Reference Asset: Greeting Card & Subtitle) */}
+            <div style={{ padding: '16px 8px 4px 8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h2
+                  style={{
+                    fontSize: '25px',
+                    fontWeight: 800,
+                    color: '#ffffff',
+                    margin: 0,
+                    letterSpacing: '-0.5px',
+                    textShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                  }}
+                >
+                  {profile.nickname || '익명 회원'}
+                </h2>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(6px)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    padding: '3px 9px',
+                    borderRadius: '999px',
+                  }}
+                >
+                  ✓ 옥토모 인증
+                </span>
+              </div>
+
+              {/* Subtitle: Location, Age, Gender, Height */}
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'rgba(255, 255, 255, 0.92)',
+                  fontWeight: 500,
+                  margin: '4px 0 12px 0',
+                  letterSpacing: '-0.2px',
+                  textShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
+                }}
+              >
+                {profile.location || '지역 미입력'} · {formattedAge} · {profile.gender || '성별'}
+                {profile.height ? ` · ${profile.height}cm` : ''}
+              </p>
+
+              {/* Expand Hint Bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: 'rgba(255, 255, 255, 0.14)',
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: '999px',
+                  padding: '7px 12px',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  color: '#ffffff',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <span>✨ 카드를 누르면 상세 정보가 펼쳐집니다</span>
+                <span style={{ fontSize: '13px' }}>▾</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Layered Ticket Tab (Protruding Orange Tab with Notches from Reference Asset) */}
+          <div
+            onClick={() => setIsExpanded(true)}
+            role="button"
+            tabIndex={0}
+            style={{
+              width: '180px',
+              height: '36px',
+              margin: '-12px auto 0 auto',
+              position: 'relative',
+              zIndex: 1,
+              background: '#ff5028',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(245, 80, 40, 0.5)',
+              cursor: 'pointer',
+              transition: 'transform 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            {/* Left circular ticket notch cutout */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: '#08090f',
+              }}
+            />
+
+            {/* Ticket Tab Center Icon (Orbit / Infinity Glyph) */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M16 6C18.5 7.5 20 10 20 12C20 16.4183 16.4183 20 12 20C9.5 20 7 18.5 5.5 16"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <circle cx="12" cy="12" r="3" fill="white" />
+            </svg>
+
+            {/* Right circular ticket notch cutout */}
+            <div
+              style={{
+                position: 'absolute',
+                right: '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: '#08090f',
+              }}
+            />
+          </div>
+        </div>
+      ) : !isEditing ? (
+        /* ========================================================================= */
+        /* 2. EXPANDED DETAILED CARD VIEW (Opened upon Tapping the Card)             */
+        /* ========================================================================= */
+        <div
+          className="profile-card animate-fade"
+          style={{
+            background: 'linear-gradient(180deg, rgba(25, 28, 44, 0.88) 0%, rgba(20, 22, 36, 0.94) 100%)',
+            border: '1px solid rgba(255, 80, 40, 0.28)',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 80, 40, 0.2)',
+            borderRadius: '32px',
+            padding: '28px 24px',
+          }}
+        >
+          {/* Header Row */}
           <div
             style={{
               display: 'flex',
@@ -141,10 +805,12 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
           >
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: 0 }}>
                   {profile.nickname}
                 </h2>
-                <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>({profile.name})</span>
+                {profile.name && (
+                  <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>({profile.name})</span>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <span
@@ -157,7 +823,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                     fontWeight: 600,
                   }}
                 >
-                  {profile.gender} · {String(profile.age).endsWith('년생') ? profile.age : `${profile.age}년생`}
+                  {profile.gender} · {formattedAge}
                 </span>
                 <span
                   style={{
@@ -174,23 +840,231 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '8px 14px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(255, 80, 40, 0.35)',
+                }}
+              >
+                ✏️ 수정
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsExpanded(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  padding: '8px 12px',
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ 접기
+              </button>
+            </div>
+          </div>
+
+          {/* Photo Gallery Swiper in Detailed View */}
+          <div
+            style={{
+              marginBottom: '20px',
+              borderRadius: '20px',
+              overflow: 'hidden',
+              background: '#0d0f17',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '12px',
+            }}
+          >
+            <div
               style={{
-                background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '8px 16px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(255, 67, 112, 0.3)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '10px',
+                padding: '0 4px',
               }}
             >
-              ✏️ 프로필 수정
-            </button>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#ff85a1' }}>
+                📸 프로필 사진 ({currentPhotos.length}장)
+              </span>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#fff',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                {isUploadingPhoto ? '업로드 중...' : '+ 사진 추가하기'}
+              </button>
+            </div>
+
+            {currentPhotos.length > 0 ? (
+              <div>
+                {/* Main Selected Photo */}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '280px',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: '#000',
+                  }}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  <img
+                    src={currentPhotos[activePhotoIdx]}
+                    alt={`프로필 사진 ${activePhotoIdx + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+
+                  {currentPhotos.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePrevPhoto}
+                        style={{
+                          position: 'absolute',
+                          left: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.5)',
+                          color: '#fff',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNextPhoto}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.5)',
+                          color: '#fff',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Thumbnail Strip */}
+                {currentPhotos.length > 1 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginTop: '10px',
+                      overflowX: 'auto',
+                      paddingBottom: '4px',
+                    }}
+                  >
+                    {currentPhotos.map((photoUrl, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setActivePhotoIdx(idx)}
+                        style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                          border: activePhotoIdx === idx ? '2px solid #ff5028' : '2px solid transparent',
+                          opacity: activePhotoIdx === idx ? 1 : 0.65,
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <img
+                          src={photoUrl}
+                          alt={`썸네일 ${idx + 1}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '30px 16px',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  borderRadius: '14px',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📷</div>
+                <div style={{ fontSize: '13.5px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>
+                  등록된 프로필 사진이 없습니다
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '12px' }}>
+                  사진을 등록하시면 상대방에게 훨씬 매력적으로 어필할 수 있습니다.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                    border: 'none',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    padding: '7px 16px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  지금 사진 추가하기
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Quick Specs Grid */}
@@ -205,14 +1079,18 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             </div>
             <div className="summary-row">
               <span className="summary-key">연락처</span>
-              <span className="summary-val">{profile.phone}</span>
+              <span className="summary-val" style={{ color: '#34d399', fontWeight: 700 }}>
+                {formatMaskedPhone(profile.phone)} (인증완료)
+              </span>
             </div>
           </div>
 
           {/* Preferences and Bio */}
           <div className="summary-box" style={{ marginBottom: '16px' }}>
             <div style={{ marginBottom: '14px' }}>
-              <span className="summary-key" style={{ display: 'block', marginBottom: '8px' }}>선호하는 동물상</span>
+              <span className="summary-key" style={{ display: 'block', marginBottom: '8px' }}>
+                선호하는 동물상
+              </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {profile.preferredAnimals && profile.preferredAnimals.length > 0 ? (
                   profile.preferredAnimals.map((animal) => (
@@ -222,9 +1100,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                         fontSize: '12px',
                         padding: '4px 10px',
                         borderRadius: '20px',
-                        background: 'rgba(255, 67, 112, 0.15)',
+                        background: 'rgba(255, 80, 40, 0.15)',
                         color: '#ff85a1',
-                        border: '1px solid rgba(255, 67, 112, 0.3)',
+                        border: '1px solid rgba(255, 80, 40, 0.3)',
                         fontWeight: 600,
                       }}
                     >
@@ -242,7 +1120,17 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 <span className="summary-key" style={{ display: 'block', marginBottom: '4px' }}>
                   원하는 외적인 구체상
                 </span>
-                <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.6, background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '10px' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13.5px',
+                    color: 'var(--text-main)',
+                    lineHeight: 1.6,
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                  }}
+                >
                   {profile.preferredAppearanceDetail}
                 </p>
               </div>
@@ -252,7 +1140,18 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               <span className="summary-key" style={{ display: 'block', marginBottom: '4px' }}>
                 선호하는 이성 (자세히)
               </span>
-              <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.6, whiteSpace: 'pre-line', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '10px' }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13.5px',
+                  color: 'var(--text-main)',
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-line',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                }}
+              >
                 {profile.preferredPartnerDetail}
               </p>
             </div>
@@ -261,7 +1160,18 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               <span className="summary-key" style={{ display: 'block', marginBottom: '4px' }}>
                 본인은 어떤 사람인가 (자세히)
               </span>
-              <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.6, whiteSpace: 'pre-line', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '10px' }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13.5px',
+                  color: 'var(--text-main)',
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-line',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                }}
+              >
                 {profile.selfIntro}
               </p>
             </div>
@@ -272,28 +1182,160 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             style={{
               padding: '16px',
               borderRadius: '14px',
-              background: 'rgba(139, 92, 246, 0.08)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
+              background: 'rgba(255, 80, 40, 0.08)',
+              border: '1px solid rgba(255, 80, 40, 0.25)',
               textAlign: 'center',
+              marginBottom: '20px',
             }}
           >
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4b5fd', marginBottom: '4px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#ff9d80', marginBottom: '4px' }}>
               ✨ 1:1 인연 매칭 접수 완료 상태
             </div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
               등록된 조건에 부합하는 멋진 인연이 매칭되면 안내 문자가 발송됩니다.
             </p>
           </div>
+
+          {/* Bottom Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn-prev"
+              onClick={() => setIsExpanded(false)}
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              ✕ 카드 접기
+            </button>
+            <button
+              type="button"
+              className="btn-next"
+              onClick={() => setIsEditing(true)}
+              style={{
+                flex: 1.6,
+                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+              }}
+            >
+              ✏️ 프로필 정보 수정
+            </button>
+          </div>
         </div>
       ) : (
-        /* EDIT MODE */
+        /* ========================================================================= */
+        /* 3. EDIT MODE (Full Profile & Photo Modification)                          */
+        /* ========================================================================= */
         <div className="profile-card">
-          <div className="card-badge" style={{ marginBottom: '12px' }}>EDIT MODE · 프로필 수정</div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: '18px' }}>
-            내 프로필 정보 수정하기
+          <div className="card-badge" style={{ marginBottom: '12px' }}>
+            EDIT MODE · 프로필 수정
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginBottom: '18px' }}>
+            내 프로필 정보 및 사진 수정
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Photos Manager in Edit Mode */}
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>프로필 사진 (최대 6장)</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingPhoto || editPhotos.length >= 6}
+                  style={{
+                    background: 'rgba(255, 80, 40, 0.15)',
+                    border: '1px solid rgba(255, 80, 40, 0.4)',
+                    color: '#ff85a1',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isUploadingPhoto ? '처리 중...' : '+ 사진 추가'}
+                </button>
+              </label>
+
+              {editPhotos.length > 0 ? (
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
+                  {editPhotos.map((photoUrl, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'relative',
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                      }}
+                    >
+                      <img
+                        src={photoUrl}
+                        alt={`등록 사진 ${idx + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemovePhoto(idx, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: 'rgba(0, 0, 0, 0.75)',
+                          color: '#fff',
+                          border: 'none',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        ✕
+                      </button>
+                      {idx === 0 && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            bottom: '0',
+                            left: '0',
+                            right: '0',
+                            background: 'rgba(255, 80, 40, 0.85)',
+                            color: '#fff',
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            padding: '1px 0',
+                          }}
+                        >
+                          대표사진
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '12px',
+                    border: '1.5px dashed rgba(255, 255, 255, 0.15)',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                  }}
+                >
+                  <span style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }}>📷</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>클릭하여 사진을 추가해보세요</span>
+                </div>
+              )}
+            </div>
+
             {/* 닉네임 */}
             <div className="form-group">
               <label className="form-label">프로필 닉네임</label>
@@ -345,9 +1387,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                       style={{
                         padding: '8px 14px',
                         borderRadius: '20px',
-                        border: isSelected ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: isSelected ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                        color: isSelected ? '#ff85a1' : 'var(--text-muted)',
+                        border: isSelected ? '1px solid #ff5028' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isSelected ? 'rgba(255, 80, 40, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                        color: isSelected ? '#ff9d80' : 'var(--text-muted)',
                         fontSize: '13px',
                         fontWeight: isSelected ? 700 : 500,
                         cursor: 'pointer',
@@ -421,7 +1463,11 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 type="button"
                 className="btn-next"
                 onClick={handleSave}
-                style={{ flex: 2, justifyContent: 'center' }}
+                style={{
+                  flex: 2,
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #ff5028 0%, #ff2a5e 100%)',
+                }}
                 disabled={isSaving || !editData.nickname.trim()}
               >
                 {isSaving ? '저장 중...' : '💾 변경사항 저장하기'}

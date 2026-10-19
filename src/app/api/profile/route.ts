@@ -35,7 +35,7 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const {
+      const {
       name,
       nickname,
       phone,
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       preferredAppearanceDetail,
       preferredPartnerDetail,
       selfIntro,
+      photos,
     } = body;
 
     // Validate required fields
@@ -104,6 +105,7 @@ export async function POST(request: Request) {
         preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
         preferred_partner_detail: preferredPartnerDetail.trim(),
         self_intro: selfIntro.trim(),
+        photos: Array.isArray(photos) ? photos : [],
       };
 
       let { data, error } = await supabase
@@ -112,11 +114,12 @@ export async function POST(request: Request) {
         .select()
         .single();
 
-      // If preferred_appearance_detail column doesn't exist yet in DB (code 42703), retry without it
+      // Fallback if photos or preferred_appearance_detail columns don't exist yet in DB (code 42703)
       if (error && error.code === '42703') {
-        console.warn('preferred_appearance_detail column not yet created in Supabase. Retrying without it.');
+        console.warn('Optional column not yet created in Supabase. Retrying without photos/appearance detail.');
         const fallbackPayload = { ...profilePayload };
         delete fallbackPayload.preferred_appearance_detail;
+        delete fallbackPayload.photos;
         const retryResult = await supabase
           .from('profiles')
           .insert([fallbackPayload])
@@ -200,6 +203,7 @@ export async function PUT(request: Request) {
       preferredAppearanceDetail,
       preferredPartnerDetail,
       selfIntro,
+      photos,
     } = body;
 
     const cleanPhone = String(phone || '').replace(/[^0-9]/g, '').trim();
@@ -229,6 +233,10 @@ export async function PUT(request: Request) {
         self_intro: selfIntro?.trim(),
       };
 
+      if (photos !== undefined) {
+        updatePayload.photos = Array.isArray(photos) ? photos : [];
+      }
+
       let query = supabase.from('profiles').update(updatePayload);
       if (id) {
         query = query.eq('id', id);
@@ -238,10 +246,11 @@ export async function PUT(request: Request) {
 
       let { data, error } = await query.select().single();
 
-      // Fallback if preferred_appearance_detail column doesn't exist yet
+      // Fallback if photos or preferred_appearance_detail column doesn't exist yet
       if (error && error.code === '42703') {
         const fallbackPayload = { ...updatePayload };
         delete fallbackPayload.preferred_appearance_detail;
+        delete fallbackPayload.photos;
         let retryQuery = supabase.from('profiles').update(fallbackPayload);
         if (id) {
           retryQuery = retryQuery.eq('id', id);
@@ -261,11 +270,20 @@ export async function PUT(request: Request) {
         );
       }
 
+      const normalized = data ? {
+        ...data,
+        preferredAnimals: data.preferred_animals || data.preferredAnimals || [],
+        preferredAppearanceDetail: data.preferred_appearance_detail || data.preferredAppearanceDetail || '',
+        preferredPartnerDetail: data.preferred_partner_detail || data.preferredPartnerDetail || '',
+        selfIntro: data.self_intro || data.selfIntro || '',
+        photos: data.photos || [],
+      } : null;
+
       return NextResponse.json(
         {
           success: true,
           message: '프로필이 성공적으로 수정되었습니다.',
-          data,
+          data: normalized,
         },
         { headers: corsHeaders }
       );
@@ -285,6 +303,19 @@ export async function PUT(request: Request) {
     const msg = err instanceof Error ? err.message : '서버 오류가 발생했습니다.';
     return NextResponse.json({ success: false, error: msg }, { status: 500, headers: corsHeaders });
   }
+}
+
+// Normalization helper for profile records
+function normalizeProfile(row: Record<string, any>) {
+  if (!row) return row;
+  return {
+    ...row,
+    preferredAnimals: row.preferred_animals || row.preferredAnimals || [],
+    preferredAppearanceDetail: row.preferred_appearance_detail || row.preferredAppearanceDetail || '',
+    preferredPartnerDetail: row.preferred_partner_detail || row.preferredPartnerDetail || '',
+    selfIntro: row.self_intro || row.selfIntro || '',
+    photos: Array.isArray(row.photos) ? row.photos : [],
+  };
 }
 
 export async function GET(request: Request) {
@@ -328,7 +359,7 @@ export async function GET(request: Request) {
         {
           success: true,
           exists: Boolean(match),
-          data: match || null,
+          data: match ? normalizeProfile(match) : null,
         },
         { headers: corsHeaders }
       );
@@ -348,8 +379,10 @@ export async function GET(request: Request) {
       );
     }
 
+    const normalizedList = (data || []).map((row) => normalizeProfile(row));
+
     return NextResponse.json(
-      { success: true, count: data?.length || 0, data: data || [] },
+      { success: true, count: normalizedList.length, data: normalizedList },
       { headers: corsHeaders }
     );
   } catch (err: unknown) {

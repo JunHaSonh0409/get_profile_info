@@ -30,6 +30,7 @@ const INITIAL_PROFILE: ProfileData = {
   preferredAppearanceDetail: '',
   preferredPartnerDetail: '',
   selfIntro: '',
+  photos: [],
 };
 
 const STEP_TITLES: Record<number, string> = {
@@ -251,6 +252,7 @@ export default function ProfilePage() {
         preferredAppearanceDetail: formData.preferredAppearanceDetail,
         preferredPartnerDetail: formData.preferredPartnerDetail,
         selfIntro: formData.selfIntro,
+        photos: formData.photos || [],
         created_at: new Date().toISOString(),
       };
 

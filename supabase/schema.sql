@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 -- 기존 테이블 업데이트 및 전화번호 중복 방지 (1인 1프로필 제한)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_appearance_detail TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS photos TEXT[] DEFAULT '{}';
 
 -- 기존 데이터 전화번호의 하이픈(-) 제거 표준화
 UPDATE public.profiles SET phone = regexp_replace(phone, '[^0-9]', '', 'g');

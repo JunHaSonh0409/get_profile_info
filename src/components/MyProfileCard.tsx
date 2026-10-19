@@ -794,22 +794,21 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               }}
             />
 
-            {/* Ticket Tab Center Icon (Orbit / Infinity Glyph) */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M16 6C18.5 7.5 20 10 20 12C20 16.4183 16.4183 20 12 20C9.5 20 7 18.5 5.5 16"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <circle cx="12" cy="12" r="3" fill="white" />
-            </svg>
+            {/* Ticket Tab Center Icon (2nd Asset White Mark) */}
+            <img
+              src="/orbit-mark-white.png"
+              alt="Orbit Brand Mark"
+              style={{
+                height: '24px',
+                width: 'auto',
+                maxWidth: '28px',
+                objectFit: 'contain',
+                display: 'block',
+                filter: 'drop-shadow(0 0 5px rgba(255, 255, 255, 0.45))',
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
+            />
 
             {/* Right circular ticket notch cutout */}
             <div

@@ -92,7 +92,7 @@ export default function StepHeightPhone({
         <div>
           <div style={{ fontSize: '11.5px', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>✅</span>
-            <span>옥토모 로그인 인증 완료</span>
+            <span>휴대폰인증 완료</span>
           </div>
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginTop: '4px' }}>
             연락처: {phone || '-'}

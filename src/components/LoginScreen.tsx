@@ -258,7 +258,7 @@ export default function LoginScreen({ onLoginSuccess, onOpenAdminList }: Props) 
         }}
       >
         <div className="card-badge" style={{ marginBottom: '14px' }}>
-          LOGIN · 전화번호(옥토모) 인증
+          LOGIN · 휴대폰인증
         </div>
         <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
           휴대폰 번호로 시작하기
@@ -327,7 +327,7 @@ export default function LoginScreen({ onLoginSuccess, onOpenAdminList }: Props) 
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>📲</span> 옥토모(OCTOMO) 문자 발송
+                <span>📲</span> 휴대폰인증 문자 발송
               </span>
               <span style={{ fontSize: '13px', fontWeight: 700, color: timeLeft <= 60 ? '#ef4444' : '#f59e0b', fontFamily: 'monospace' }}>
                 ⏱️ {formatTimer(timeLeft)}

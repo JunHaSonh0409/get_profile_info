@@ -662,7 +662,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                     borderRadius: '999px',
                   }}
                 >
-                  ✓ 옥토모 인증
+                  ✓ 휴대폰인증
                 </span>
               </div>
 
@@ -835,7 +835,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                     fontWeight: 600,
                   }}
                 >
-                  ✓ 옥토모 인증 완료
+                  ✓ 휴대폰인증 완료
                 </span>
               </div>
             </div>

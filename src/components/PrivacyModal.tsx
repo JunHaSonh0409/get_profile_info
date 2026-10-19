@@ -109,7 +109,7 @@ export default function PrivacyModal({ isOpen, onClose, onAgree }: Props) {
             </h4>
             <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--text-muted)' }}>
               <li>
-                <b style={{ color: '#fff' }}>기본 인적사항:</b> 이름(실명), 닉네임, 연락처(휴대폰 번호 - 옥토모 점유 문자 인증), 성별, 출생연도, 키(신장), 거주 지역(시/도 및 구 단위)
+                <b style={{ color: '#fff' }}>기본 인적사항:</b> 이름(실명), 닉네임, 연락처(휴대폰 번호 - 휴대폰 점유 문자 인증), 성별, 출생연도, 키(신장), 거주 지역(시/도 및 구 단위)
               </li>
               <li>
                 <b style={{ color: '#fff' }}>매칭 및 취향 정보:</b> 선호하는 이성의 동물상, 원하는 외적인 구체적 상, 선호하는 이성 조건(상세), 본인 소개글

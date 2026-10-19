@@ -63,8 +63,13 @@ export default function ProfilePage() {
   useEffect(() => {
     const checkAuthSession = async () => {
       try {
-        const storedPhone = localStorage.getItem('orbit_auth_phone');
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryPhone = urlParams.get('login') || urlParams.get('phone');
+        const storedPhone = queryPhone || localStorage.getItem('orbit_auth_phone');
         if (storedPhone) {
+          if (queryPhone) {
+            localStorage.setItem('orbit_auth_phone', queryPhone);
+          }
           const res = await fetch(`/api/profile?phone=${storedPhone}`);
           const result = await res.json();
           if (result.exists && result.data) {

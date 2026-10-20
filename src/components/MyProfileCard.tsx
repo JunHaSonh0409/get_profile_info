@@ -204,6 +204,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
     try {
       const rawDataUrls = await Promise.all(readPromises);
       if (rawDataUrls.length > 0) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
         setEditorState({
           isOpen: true,
           pendingQueue: rawDataUrls,
@@ -308,6 +309,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
 
       setActivePhotoIdx(combined.length - 1);
       setSaveMessage({ type: 'success', text: `사진 ${uploadedUrls.length}장이 안전하게 등록되었습니다! (최대 3장)` });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '사진 처리 실패';
       setSaveMessage({ type: 'error', text: msg });

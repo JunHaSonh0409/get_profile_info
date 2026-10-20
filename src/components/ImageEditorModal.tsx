@@ -122,11 +122,16 @@ export default function ImageEditorModal({
 
   useEffect(() => {
     if (isOpen) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.body.style.overflow = 'hidden';
       initCanvas();
       setMode('crop');
       setAspectRatio('3:4');
       setBlurIntensity('weak');
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, initCanvas]);
 
   // Global drag release listener to ensure dragging stops even when mouseup occurs outside canvas
@@ -533,9 +538,10 @@ export default function ImageEditorModal({
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '12px',
+        padding: '16px 12px 30px',
+        overflowY: 'auto',
         animation: 'fadeIn 0.2s ease-out',
       }}
       onClick={(e) => {
@@ -546,7 +552,8 @@ export default function ImageEditorModal({
         style={{
           width: '100%',
           maxWidth: '560px',
-          maxHeight: '94vh',
+          marginTop: '6px',
+          maxHeight: 'calc(100vh - 36px)',
           background: 'rgba(18, 20, 29, 0.96)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',

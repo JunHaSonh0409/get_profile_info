@@ -3,12 +3,12 @@ import { cookies } from 'next/headers';
 
 // Environment credentials & secret getters with quotation cleanup
 function getAdminUsername(): string {
-  const raw = process.env.ADMIN_USERNAME || 'admin';
+  const raw = process.env.ADMIN_USERNAME || 'dkdlel0409';
   return raw.replace(/^["']|["']$/g, '').trim();
 }
 
 function getAdminPassword(): string {
-  const raw = process.env.ADMIN_PASSWORD || 'orbit2026!@#secure';
+  const raw = process.env.ADMIN_PASSWORD || '0954258a@!#';
   return raw.replace(/^["']|["']$/g, '').trim();
 }
 

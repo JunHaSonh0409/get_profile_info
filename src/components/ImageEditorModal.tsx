@@ -104,6 +104,40 @@ export default function ImageEditorModal({
     }
   }, [isOpen, initCanvas]);
 
+  // Global drag release listener to ensure dragging stops even when mouseup occurs outside canvas
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalRelease = () => {
+      dragActionRef.current = null;
+    };
+
+    const handleGlobalMove = (e: MouseEvent | PointerEvent) => {
+      // If pointer is moving anywhere on the screen without mouse button pressed, cancel drag
+      if ('buttons' in e && e.buttons === 0 && dragActionRef.current) {
+        dragActionRef.current = null;
+      }
+    };
+
+    window.addEventListener('mouseup', handleGlobalRelease);
+    window.addEventListener('pointerup', handleGlobalRelease);
+    window.addEventListener('touchend', handleGlobalRelease);
+    window.addEventListener('touchcancel', handleGlobalRelease);
+    window.addEventListener('blur', handleGlobalRelease);
+    window.addEventListener('mousemove', handleGlobalMove);
+    window.addEventListener('pointermove', handleGlobalMove);
+
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalRelease);
+      window.removeEventListener('pointerup', handleGlobalRelease);
+      window.removeEventListener('touchend', handleGlobalRelease);
+      window.removeEventListener('touchcancel', handleGlobalRelease);
+      window.removeEventListener('blur', handleGlobalRelease);
+      window.removeEventListener('mousemove', handleGlobalMove);
+      window.removeEventListener('pointermove', handleGlobalMove);
+    };
+  }, [isOpen]);
+
   // Adjust crop rect based on selected aspect ratio
   const applyAspectRatio = (ratio: AspectRatio, cWidth?: number, cHeight?: number) => {
     const canvas = canvasRef.current;
@@ -258,6 +292,9 @@ export default function ImageEditorModal({
 
   // Pointer Down handler
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    // Ignore non-primary mouse clicks (right click, middle click)
+    if ('button' in e && e.button !== 0) return;
+
     const { x, y } = getCanvasCoords(e);
 
     if (mode === 'mosaic') {
@@ -306,6 +343,13 @@ export default function ImageEditorModal({
   // Pointer Move handler
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!dragActionRef.current) return;
+
+    // CRITICAL FIX: If mouse button is not currently pressed down, cancel drag immediately
+    if ('buttons' in e && e.buttons === 0) {
+      dragActionRef.current = null;
+      return;
+    }
+
     const { x, y } = getCanvasCoords(e);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -759,6 +803,11 @@ export default function ImageEditorModal({
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp}
+            onMouseLeave={(e) => {
+              if ('buttons' in e && e.buttons === 0) {
+                dragActionRef.current = null;
+              }
+            }}
             onTouchStart={handlePointerDown}
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}

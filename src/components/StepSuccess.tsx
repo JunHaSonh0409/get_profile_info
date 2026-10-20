@@ -9,11 +9,10 @@ interface Props {
   receiptId?: string;
   isDemo?: boolean;
   onReset: () => void;
-  onViewList?: () => void;
   onViewMyProfile?: () => void;
 }
 
-export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewList, onViewMyProfile }: Props) {
+export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewMyProfile }: Props) {
   useEffect(() => {
     // Fire celebratory confetti!
     try {
@@ -104,17 +103,6 @@ export default function StepSuccess({ data, receiptId, isDemo, onReset, onViewLi
             style={{ width: '100%', background: 'linear-gradient(135deg, #ff4370 0%, #8b5cf6 100%)' }}
           >
             💫 내 프로필 카드 확인하기
-          </button>
-        )}
-
-        {onViewList && (
-          <button
-            type="button"
-            className="btn-prev"
-            onClick={onViewList}
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            📋 등록된 프로필 목록 확인하기
           </button>
         )}
 

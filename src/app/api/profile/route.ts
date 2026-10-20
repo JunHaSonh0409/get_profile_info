@@ -445,49 +445,33 @@ export async function GET(request: Request) {
       auth: { persistSession: false },
     });
 
-    if (phoneParam) {
-      const cleanTarget = phoneParam.replace(/[^0-9]/g, '');
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*');
-
-      if (error) {
-        console.error('Supabase fetch error for phone:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
-      }
-
-      const match = data?.find(
-        (row) => String(row.phone || '').replace(/[^0-9]/g, '') === cleanTarget
-      );
-
+    if (!phoneParam) {
       return NextResponse.json(
-        {
-          success: true,
-          exists: Boolean(match),
-          data: match ? normalizeProfile(match) : null,
-        },
-        { headers: corsHeaders }
+        { success: false, error: '조회할 전화번호가 필요합니다.' },
+        { status: 400, headers: corsHeaders }
       );
     }
 
+    const cleanTarget = phoneParam.replace(/[^0-9]/g, '');
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .select('*');
 
     if (error) {
-      console.error('Supabase DB Fetch Error:', error);
-      return NextResponse.json(
-        { success: false, error: error.message, details: error },
-        { status: 500, headers: corsHeaders }
-      );
+      console.error('Supabase fetch error for phone:', error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
     }
 
-    const normalizedList = (data || []).map((row) => normalizeProfile(row));
+    const match = data?.find(
+      (row) => String(row.phone || '').replace(/[^0-9]/g, '') === cleanTarget
+    );
 
     return NextResponse.json(
-      { success: true, count: normalizedList.length, data: normalizedList },
+      {
+        success: true,
+        exists: Boolean(match),
+        data: match ? normalizeProfile(match) : null,
+      },
       { headers: corsHeaders }
     );
   } catch (err: unknown) {

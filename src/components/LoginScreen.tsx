@@ -5,10 +5,9 @@ import { ProfileData } from '@/lib/types';
 
 interface Props {
   onLoginSuccess: (data: { phone: string; profile: ProfileData | null; isNewUser: boolean }) => void;
-  onOpenAdminList?: () => void;
 }
 
-export default function LoginScreen({ onLoginSuccess, onOpenAdminList }: Props) {
+export default function LoginScreen({ onLoginSuccess }: Props) {
   const [phone, setPhone] = useState('');
   const [isRequesting, setIsRequesting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -489,26 +488,6 @@ export default function LoginScreen({ onLoginSuccess, onOpenAdminList }: Props) 
           </div>
         )}
       </div>
-
-      {/* Admin List Quick Link if provided */}
-      {onOpenAdminList && (
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button
-            type="button"
-            onClick={onOpenAdminList}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-dim)',
-              fontSize: '12px',
-              textDecoration: 'underline',
-              cursor: 'pointer',
-            }}
-          >
-            📋 전체 접수 목록 (관리자 확인용)
-          </button>
-        </div>
-      )}
     </div>
   );
 }

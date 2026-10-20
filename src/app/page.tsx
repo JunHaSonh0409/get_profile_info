@@ -12,7 +12,6 @@ import StepPartnerDetail from '@/components/StepPartnerDetail';
 import StepSelfIntro from '@/components/StepSelfIntro';
 import StepReview from '@/components/StepReview';
 import StepSuccess from '@/components/StepSuccess';
-import AdminProfileModal from '@/components/AdminProfileModal';
 import LoginScreen from '@/components/LoginScreen';
 import MyProfileCard from '@/components/MyProfileCard';
 
@@ -57,7 +56,6 @@ export default function ProfilePage() {
   const [submitError, setSubmitError] = useState<string>('');
   const [receiptId, setReceiptId] = useState<string>('');
   const [isDemoSubmission, setIsDemoSubmission] = useState<boolean>(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
   // Initial check: Restore session by authenticated phone
   useEffect(() => {
@@ -316,16 +314,7 @@ export default function ProfilePage() {
   if (viewMode === 'LOGIN') {
     return (
       <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <LoginScreen
-          onLoginSuccess={handleLoginSuccess}
-          onOpenAdminList={() => setIsAdminModalOpen(true)}
-        />
-        {isAdminModalOpen && (
-          <AdminProfileModal
-            isOpen={isAdminModalOpen}
-            onClose={() => setIsAdminModalOpen(false)}
-          />
-        )}
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
       </main>
     );
   }
@@ -339,12 +328,6 @@ export default function ProfilePage() {
           onUpdate={(updated) => setMemberProfile(updated)}
           onLogout={handleLogout}
         />
-        {isAdminModalOpen && (
-          <AdminProfileModal
-            isOpen={isAdminModalOpen}
-            onClose={() => setIsAdminModalOpen(false)}
-          />
-        )}
       </main>
     );
   }
@@ -385,22 +368,6 @@ export default function ProfilePage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => setIsAdminModalOpen(true)}
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'var(--text-muted)',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            📋 접수 목록
-          </button>
           <button
             type="button"
             onClick={handleLogout}
@@ -504,7 +471,6 @@ export default function ProfilePage() {
             receiptId={receiptId}
             isDemo={isDemoSubmission}
             onReset={handleReset}
-            onViewList={() => setIsAdminModalOpen(true)}
             onViewMyProfile={() => setViewMode('MY_PROFILE')}
           />
         )}
@@ -562,14 +528,6 @@ export default function ProfilePage() {
       <footer style={{ marginTop: '30px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
         <p>© 2026 Orbit Profile · 개인정보는 매칭 목적으로만 안전하게 보관됩니다.</p>
       </footer>
-
-      {/* Admin Profile Modal */}
-      {isAdminModalOpen && (
-        <AdminProfileModal
-          isOpen={isAdminModalOpen}
-          onClose={() => setIsAdminModalOpen(false)}
-        />
-      )}
     </main>
   );
 }

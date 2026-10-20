@@ -148,26 +148,64 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
     setTouchDeltaX(0);
   };
 
-  // Upload photos
+  // Upload photos to Supabase Storage via /api/upload (Max 3 photos)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    const currentList = isEditing ? editPhotos : currentPhotos;
+    const remainingSlots = Math.max(0, 3 - currentList.length);
+
+    if (remainingSlots <= 0) {
+      setSaveMessage({ type: 'error', text: '사진은 최대 3장까지만 등록 가능합니다.' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setIsUploadingPhoto(true);
     setSaveMessage(null);
 
     try {
+      const selectedFiles = Array.from(files).slice(0, remainingSlots);
       const newPhotoPromises: Promise<string>[] = [];
-      for (let i = 0; i < files.length; i++) {
-        if (files[i].type.startsWith('image/')) {
-          newPhotoPromises.push(compressImage(files[i]));
+      for (const file of selectedFiles) {
+        if (file.type.startsWith('image/')) {
+          newPhotoPromises.push(compressImage(file));
         }
       }
 
       const compressedBase64s = await Promise.all(newPhotoPromises);
-      const combined = [...(isEditing ? editPhotos : currentPhotos), ...compressedBase64s].slice(0, 6);
+      if (compressedBase64s.length === 0) {
+        setIsUploadingPhoto(false);
+        return;
+      }
 
       const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
+
+      // Upload to Supabase Storage via /api/upload
+      let uploadedUrls: string[] = [];
+      try {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            images: compressedBase64s,
+            phone: cleanPhone,
+          }),
+        });
+        const uploadResult = await uploadRes.json();
+        if (uploadResult.success && Array.isArray(uploadResult.urls) && uploadResult.urls.length > 0) {
+          uploadedUrls = uploadResult.urls;
+        } else {
+          throw new Error(uploadResult.error || '스토리지 업로드 실패');
+        }
+      } catch (uploadErr) {
+        console.warn('Storage upload error, using fallback:', uploadErr);
+        uploadedUrls = compressedBase64s;
+      }
+
+      const combined = [...currentList, ...uploadedUrls].slice(0, 3);
+
       if (cleanPhone) {
         localStorage.setItem(`orbit_photos_${cleanPhone}`, JSON.stringify(combined));
       }
@@ -189,7 +227,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       }
 
       setActivePhotoIdx(combined.length - 1);
-      setSaveMessage({ type: 'success', text: `사진 ${compressedBase64s.length}장이 추가되었습니다.` });
+      setSaveMessage({ type: 'success', text: `사진 ${uploadedUrls.length}장이 Storage에 안전하게 등록되었습니다! (최대 3장)` });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '사진 처리 실패';
       setSaveMessage({ type: 'error', text: msg });
@@ -945,24 +983,24 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               }}
             >
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#ff85a1' }}>
-                📸 프로필 사진 ({currentPhotos.length}장)
+                📸 프로필 사진 ({currentPhotos.length}/3장)
               </span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingPhoto}
+                disabled={isUploadingPhoto || currentPhotos.length >= 3}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
+                  background: currentPhotos.length >= 3 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.08)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#fff',
+                  color: currentPhotos.length >= 3 ? 'rgba(255, 255, 255, 0.4)' : '#fff',
                   fontSize: '11.5px',
                   fontWeight: 600,
                   padding: '4px 10px',
                   borderRadius: '8px',
-                  cursor: 'pointer',
+                  cursor: currentPhotos.length >= 3 ? 'not-allowed' : 'pointer',
                 }}
               >
-                {isUploadingPhoto ? '업로드 중...' : '+ 사진 추가하기'}
+                {isUploadingPhoto ? '업로드 중...' : currentPhotos.length >= 3 ? '최대 3장 등록됨' : '+ 사진 추가하기'}
               </button>
             </div>
 
@@ -1284,23 +1322,23 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             {/* Photos Manager in Edit Mode */}
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>프로필 사진 (최대 6장)</span>
+                <span>프로필 사진 (최대 3장)</span>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingPhoto || editPhotos.length >= 6}
+                  disabled={isUploadingPhoto || editPhotos.length >= 3}
                   style={{
-                    background: 'rgba(255, 67, 112, 0.15)',
-                    border: '1px solid rgba(255, 67, 112, 0.4)',
-                    color: '#ff85a1',
+                    background: editPhotos.length >= 3 ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 67, 112, 0.15)',
+                    border: editPhotos.length >= 3 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 67, 112, 0.4)',
+                    color: editPhotos.length >= 3 ? 'rgba(255, 255, 255, 0.35)' : '#ff85a1',
                     fontSize: '11.5px',
                     fontWeight: 700,
                     padding: '4px 10px',
                     borderRadius: '6px',
-                    cursor: 'pointer',
+                    cursor: editPhotos.length >= 3 ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {isUploadingPhoto ? '처리 중...' : '+ 사진 추가'}
+                  {isUploadingPhoto ? '처리 중...' : editPhotos.length >= 3 ? '최대 3장 등록됨' : '+ 사진 추가'}
                 </button>
               </label>
 

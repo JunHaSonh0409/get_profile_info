@@ -80,3 +80,35 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
   END IF;
 END $$;
+
+-- ==============================================================================
+-- 4. Supabase Storage 설정 (profile-photos 공개 버킷)
+-- ==============================================================================
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('profile-photos', 'profile-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "누구나 프로필 사진을 업로드할 수 있습니다" ON storage.objects;
+CREATE POLICY "누구나 프로필 사진을 업로드할 수 있습니다"
+ON storage.objects FOR INSERT
+TO anon, authenticated
+WITH CHECK (bucket_id = 'profile-photos');
+
+DROP POLICY IF EXISTS "누구나 프로필 사진을 볼 수 있습니다" ON storage.objects;
+CREATE POLICY "누구나 프로필 사진을 볼 수 있습니다"
+ON storage.objects FOR SELECT
+TO anon, authenticated
+USING (bucket_id = 'profile-photos');
+
+DROP POLICY IF EXISTS "프로필 사진 수정/삭제 정책" ON storage.objects;
+CREATE POLICY "프로필 사진 수정/삭제 정책"
+ON storage.objects FOR UPDATE
+TO anon, authenticated
+USING (bucket_id = 'profile-photos');
+
+DROP POLICY IF EXISTS "프로필 사진 삭제 정책" ON storage.objects;
+CREATE POLICY "프로필 사진 삭제 정책"
+ON storage.objects FOR DELETE
+TO anon, authenticated
+USING (bucket_id = 'profile-photos');
+

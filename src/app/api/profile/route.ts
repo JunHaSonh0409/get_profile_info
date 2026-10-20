@@ -32,10 +32,65 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
+// Upload any base64 images directly to Supabase Storage and return public URLs (max 3)
+async function uploadBase64PhotosToStorage(
+  supabase: any,
+  phone: string,
+  photosList: string[]
+): Promise<string[]> {
+  if (!Array.isArray(photosList) || photosList.length === 0) return [];
+
+  const limited = photosList.slice(0, 3);
+  const resultUrls: string[] = [];
+  const safePhone = (phone || 'guest').replace(/[^0-9]/g, '') || 'guest';
+
+  for (let i = 0; i < limited.length; i++) {
+    const photo = limited[i];
+    if (typeof photo !== 'string') continue;
+
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      resultUrls.push(photo);
+      continue;
+    }
+
+    const match = photo.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      try {
+        const mime = match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+        const filename = `${safePhone}/${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('profile-photos')
+          .upload(filename, buffer, { contentType: mime, upsert: true });
+
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage
+            .from('profile-photos')
+            .getPublicUrl(filename);
+          resultUrls.push(urlData.publicUrl);
+          continue;
+        } else {
+          console.error('Storage upload error in profile API:', uploadErr);
+        }
+      } catch (e) {
+        console.error('Failed to convert base64 to storage:', e);
+      }
+    }
+
+    if (photo.startsWith('http')) {
+      resultUrls.push(photo);
+    }
+  }
+
+  return resultUrls;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-      const {
+    const {
       name,
       nickname,
       phone,
@@ -93,6 +148,9 @@ export async function POST(request: Request) {
         }
       }
 
+      // Convert any base64 photos to Supabase Storage public URLs (limit to 3)
+      const processedPhotos = await uploadBase64PhotosToStorage(supabase, cleanPhone, photos || []);
+
       const profilePayload: Record<string, unknown> = {
         name: name.trim(),
         nickname: nickname.trim(),
@@ -105,14 +163,13 @@ export async function POST(request: Request) {
         preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
         preferred_partner_detail: preferredPartnerDetail.trim(),
         self_intro: selfIntro.trim(),
-        photos: Array.isArray(photos) ? photos : [],
+        photos: processedPhotos,
       };
 
       let { data, error } = await supabase
         .from('profiles')
         .insert([profilePayload])
-        .select()
-        .single();
+        .select();
 
       // Helper to check if error is due to missing columns or PostgREST schema cache
       const isColumnError = (err: any) => {
@@ -135,8 +192,7 @@ export async function POST(request: Request) {
         const retryResult = await supabase
           .from('profiles')
           .insert([fallbackPayload])
-          .select()
-          .single();
+          .select();
         data = retryResult.data;
         error = retryResult.error;
       }
@@ -246,7 +302,7 @@ export async function PUT(request: Request) {
       };
 
       if (photos !== undefined) {
-        updatePayload.photos = Array.isArray(photos) ? photos : [];
+        updatePayload.photos = await uploadBase64PhotosToStorage(supabase, cleanPhone, photos || []);
       }
 
       let query = supabase.from('profiles').update(updatePayload);
@@ -325,7 +381,7 @@ export async function PUT(request: Request) {
         preferredAppearanceDetail: updatedRow.preferred_appearance_detail || updatedRow.preferredAppearanceDetail || '',
         preferredPartnerDetail: updatedRow.preferred_partner_detail || updatedRow.preferredPartnerDetail || '',
         selfIntro: updatedRow.self_intro || updatedRow.selfIntro || '',
-        photos: updatedRow.photos !== undefined ? updatedRow.photos : (photos || []),
+        photos: (Array.isArray(updatedRow.photos) ? updatedRow.photos : (Array.isArray(updatePayload.photos) ? updatePayload.photos : (photos || []))).slice(0, 3),
       } : null;
 
       return NextResponse.json(

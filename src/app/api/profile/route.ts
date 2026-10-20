@@ -114,9 +114,21 @@ export async function POST(request: Request) {
         .select()
         .single();
 
-      // Fallback if photos or preferred_appearance_detail columns don't exist yet in DB (code 42703)
-      if (error && error.code === '42703') {
-        console.warn('Optional column not yet created in Supabase. Retrying without photos/appearance detail.');
+      // Helper to check if error is due to missing columns or PostgREST schema cache
+      const isColumnError = (err: any) => {
+        if (!err) return false;
+        return (
+          err.code === '42703' ||
+          err.code === 'PGRST204' ||
+          String(err.message || '').includes('schema cache') ||
+          String(err.message || '').includes('Could not find') ||
+          String(err.details || '').includes('column')
+        );
+      };
+
+      // Fallback if photos or preferred_appearance_detail columns don't exist yet in DB or schema cache
+      if (isColumnError(error)) {
+        console.warn('Optional column not in Supabase schema cache. Retrying without photos/appearance detail:', error?.message);
         const fallbackPayload = { ...profilePayload };
         delete fallbackPayload.preferred_appearance_detail;
         delete fallbackPayload.photos;
@@ -246,8 +258,21 @@ export async function PUT(request: Request) {
 
       let { data, error } = await query.select().single();
 
-      // Fallback if photos or preferred_appearance_detail column doesn't exist yet
-      if (error && error.code === '42703') {
+      // Helper to check if error is due to missing columns or PostgREST schema cache
+      const isColumnError = (err: any) => {
+        if (!err) return false;
+        return (
+          err.code === '42703' ||
+          err.code === 'PGRST204' ||
+          String(err.message || '').includes('schema cache') ||
+          String(err.message || '').includes('Could not find') ||
+          String(err.details || '').includes('column')
+        );
+      };
+
+      // Fallback if photos or preferred_appearance_detail column doesn't exist yet in DB or schema cache
+      if (isColumnError(error)) {
+        console.warn('Optional column not in Supabase schema cache. Retrying without photos/appearance detail:', error?.message);
         const fallbackPayload = { ...updatePayload };
         delete fallbackPayload.preferred_appearance_detail;
         delete fallbackPayload.photos;
@@ -276,7 +301,7 @@ export async function PUT(request: Request) {
         preferredAppearanceDetail: data.preferred_appearance_detail || data.preferredAppearanceDetail || '',
         preferredPartnerDetail: data.preferred_partner_detail || data.preferredPartnerDetail || '',
         selfIntro: data.self_intro || data.selfIntro || '',
-        photos: data.photos || [],
+        photos: data.photos !== undefined ? data.photos : (photos || []),
       } : null;
 
       return NextResponse.json(

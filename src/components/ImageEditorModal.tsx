@@ -12,8 +12,9 @@ export interface ImageEditorModalProps {
   onSkipEdit: (originalDataUrl: string) => void;
 }
 
-type EditorMode = 'crop' | 'mosaic';
+type EditorMode = 'crop' | 'blur';
 type AspectRatio = '3:4' | '1:1' | 'free' | 'full';
+type BlurIntensity = 'weak' | 'strong';
 type BrushSize = 'small' | 'medium' | 'large';
 
 interface CropRect {
@@ -34,6 +35,7 @@ export default function ImageEditorModal({
 }: ImageEditorModalProps) {
   const [mode, setMode] = useState<EditorMode>('crop');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
+  const [blurIntensity, setBlurIntensity] = useState<BlurIntensity>('weak');
   const [brushSize, setBrushSize] = useState<BrushSize>('medium');
   const [canUndo, setCanUndo] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -41,8 +43,9 @@ export default function ImageEditorModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Loaded base image
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  // Pre-rendered blurred canvases for silky smooth 60fps feathered blur
+  const weakBlurCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const strongBlurCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Crop box state (in canvas display coordinates)
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -51,26 +54,25 @@ export default function ImageEditorModal({
   const dragActionRef = useRef<
     | { type: 'move'; startX: number; startY: number; initialRect: CropRect }
     | { type: 'resize'; handle: string; startX: number; startY: number; initialRect: CropRect }
-    | { type: 'mosaic' }
+    | { type: 'blur' }
     | null
   >(null);
 
-  // Undo history for mosaic strokes
+  // Undo history for blur strokes
   const historyRef = useRef<ImageData[]>([]);
 
-  // Initialize canvas and image
+  // Initialize canvas, base image, and pre-computed blur layers
   const initCanvas = useCallback(() => {
     if (!imageSrc) return;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      imgRef.current = img;
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const containerWidth = Math.min(window.innerWidth - 32, 540);
-      const containerHeight = Math.min(window.innerHeight - 320, 520);
+      const containerHeight = Math.min(window.innerHeight - 340, 520);
 
       let scale = Math.min(containerWidth / img.width, containerHeight / img.height);
       if (scale > 1) scale = 1; // Don't upscale
@@ -90,6 +92,28 @@ export default function ImageEditorModal({
         setCanUndo(false);
       }
 
+      // 1. Generate Weak Blur layer (~10px blur, preserves soft facial contours)
+      const weakCanvas = document.createElement('canvas');
+      weakCanvas.width = canvasWidth;
+      weakCanvas.height = canvasHeight;
+      const wCtx = weakCanvas.getContext('2d');
+      if (wCtx) {
+        wCtx.filter = 'blur(10px)';
+        wCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+      }
+      weakBlurCanvasRef.current = weakCanvas;
+
+      // 2. Generate Strong Blur layer (~26px blur, deep obscure smoothing)
+      const strongCanvas = document.createElement('canvas');
+      strongCanvas.width = canvasWidth;
+      strongCanvas.height = canvasHeight;
+      const sCtx = strongCanvas.getContext('2d');
+      if (sCtx) {
+        sCtx.filter = 'blur(26px)';
+        sCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+      }
+      strongBlurCanvasRef.current = strongCanvas;
+
       // Initialize default 3:4 crop rect
       applyAspectRatio('3:4', canvasWidth, canvasHeight);
     };
@@ -101,6 +125,7 @@ export default function ImageEditorModal({
       initCanvas();
       setMode('crop');
       setAspectRatio('3:4');
+      setBlurIntensity('weak');
     }
   }, [isOpen, initCanvas]);
 
@@ -175,61 +200,59 @@ export default function ImageEditorModal({
     });
   };
 
-  // Mosaic brush stroke applicator
-  const applyMosaicAt = (cx: number, cy: number) => {
+  // Smooth Feathered Blur Brush Applicator
+  const applyBlurAt = (cx: number, cy: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const sourceCanvas =
+      blurIntensity === 'weak' ? weakBlurCanvasRef.current : strongBlurCanvasRef.current;
+    if (!sourceCanvas) return;
+
     const radiusMap: Record<BrushSize, number> = {
-      small: 16,
-      medium: 30,
-      large: 50,
+      small: 22,
+      medium: 42,
+      large: 70,
     };
     const radius = radiusMap[brushSize];
-    const blockSize = brushSize === 'small' ? 8 : brushSize === 'medium' ? 12 : 16;
+    const diameter = radius * 2;
 
-    const startX = Math.max(0, Math.floor(cx - radius));
-    const startY = Math.max(0, Math.floor(cy - radius));
-    const endX = Math.min(canvas.width, Math.ceil(cx + radius));
-    const endY = Math.min(canvas.height, Math.ceil(cy + radius));
-    const w = endX - startX;
-    const h = endY - startY;
+    // Offscreen stamp for feathered radial falloff
+    const stamp = document.createElement('canvas');
+    stamp.width = diameter;
+    stamp.height = diameter;
+    const sCtx = stamp.getContext('2d');
+    if (!sCtx) return;
 
-    if (w <= 0 || h <= 0) return;
+    // Radial gradient for natural smooth edges (no hard borders)
+    const grad = sCtx.createRadialGradient(radius, radius, radius * 0.35, radius, radius, radius);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.85)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-    const imgData = ctx.getImageData(startX, startY, w, h);
-    const data = imgData.data;
+    sCtx.fillStyle = grad;
+    sCtx.beginPath();
+    sCtx.arc(radius, radius, radius, 0, Math.PI * 2);
+    sCtx.fill();
 
-    for (let y = 0; y < h; y += blockSize) {
-      for (let x = 0; x < w; x += blockSize) {
-        const currentCx = startX + x + blockSize / 2;
-        const currentCy = startY + y + blockSize / 2;
-        const dist = Math.hypot(currentCx - cx, currentCy - cy);
-        if (dist > radius) continue;
+    // Composite the blurred image into the feathered circle
+    sCtx.globalCompositeOperation = 'source-in';
+    sCtx.drawImage(
+      sourceCanvas,
+      cx - radius,
+      cy - radius,
+      diameter,
+      diameter,
+      0,
+      0,
+      diameter,
+      diameter
+    );
 
-        const sampleX = Math.min(x + Math.floor(blockSize / 2), w - 1);
-        const sampleY = Math.min(y + Math.floor(blockSize / 2), h - 1);
-        const sampleIdx = (sampleY * w + sampleX) * 4;
-        const r = data[sampleIdx];
-        const g = data[sampleIdx + 1];
-        const b = data[sampleIdx + 2];
-        const a = data[sampleIdx + 3];
-
-        for (let by = 0; by < blockSize && y + by < h; by++) {
-          for (let bx = 0; bx < blockSize && x + bx < w; bx++) {
-            const idx = ((y + by) * w + (x + bx)) * 4;
-            data[idx] = r;
-            data[idx + 1] = g;
-            data[idx + 2] = b;
-            data[idx + 3] = a;
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(imgData, startX, startY);
+    // Paint onto main canvas
+    ctx.drawImage(stamp, cx - radius, cy - radius);
   };
 
   // Save current canvas state to history for undo
@@ -247,7 +270,7 @@ export default function ImageEditorModal({
     setCanUndo(historyRef.current.length > 1);
   };
 
-  // Undo last mosaic action
+  // Undo last blur action
   const handleUndo = () => {
     if (historyRef.current.length <= 1) return;
     historyRef.current.pop(); // Remove current state
@@ -262,8 +285,8 @@ export default function ImageEditorModal({
     setCanUndo(historyRef.current.length > 1);
   };
 
-  // Reset mosaic back to original
-  const handleResetMosaic = () => {
+  // Reset blur back to original
+  const handleResetBlur = () => {
     if (historyRef.current.length === 0) return;
     const originalState = historyRef.current[0];
     const canvas = canvasRef.current;
@@ -297,10 +320,10 @@ export default function ImageEditorModal({
 
     const { x, y } = getCanvasCoords(e);
 
-    if (mode === 'mosaic') {
+    if (mode === 'blur') {
       saveHistory();
-      dragActionRef.current = { type: 'mosaic' };
-      applyMosaicAt(x, y);
+      dragActionRef.current = { type: 'blur' };
+      applyBlurAt(x, y);
       return;
     }
 
@@ -354,8 +377,8 @@ export default function ImageEditorModal({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (dragActionRef.current.type === 'mosaic') {
-      applyMosaicAt(x, y);
+    if (dragActionRef.current.type === 'blur') {
+      applyBlurAt(x, y);
       return;
     }
 
@@ -564,7 +587,7 @@ export default function ImageEditorModal({
               )}
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.6)' }}>
-              비율을 맞추고 가리고 싶은 곳(얼굴/배경)을 모자이크 처리하세요
+              비율을 맞추고 얼굴이나 가리고 싶은 부위를 자연스럽게 블러 처리하세요
             </p>
           </div>
 
@@ -627,14 +650,14 @@ export default function ImageEditorModal({
 
             <button
               type="button"
-              onClick={() => setMode('mosaic')}
+              onClick={() => setMode('blur')}
               style={{
                 flex: 1,
                 padding: '8px 12px',
                 borderRadius: '10px',
-                border: mode === 'mosaic' ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: mode === 'mosaic' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                color: mode === 'mosaic' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
+                border: mode === 'blur' ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: mode === 'blur' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                color: mode === 'blur' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
                 fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -645,7 +668,7 @@ export default function ImageEditorModal({
                 transition: 'all 0.15s',
               }}
             >
-              🪄 모자이크 펜
+              🌫️ 얼굴/배경 블러
             </button>
           </div>
 
@@ -709,68 +732,115 @@ export default function ImageEditorModal({
             </div>
           )}
 
-          {/* Sub-tools for Mosaic Mode */}
-          {mode === 'mosaic' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)' }}>브러시 크기:</span>
-              {(['small', 'medium', 'large'] as BrushSize[]).map((size) => {
-                const label = size === 'small' ? '소' : size === 'medium' ? '중' : '대';
-                const px = size === 'small' ? '16px' : size === 'medium' ? '30px' : '50px';
-                return (
+          {/* Sub-tools for Blur Mode */}
+          {mode === 'blur' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Blur Intensity Selector (Weak vs Strong as in User Assets) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.6)', fontWeight: 600 }}>
+                  블러 강도:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBlurIntensity('weak')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: blurIntensity === 'weak' ? '1.5px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.15)',
+                    background: blurIntensity === 'weak' ? 'rgba(255, 67, 112, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                    color: blurIntensity === 'weak' ? '#fff' : 'rgba(255, 255, 255, 0.75)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  🫧 약한 블러 (은은하게)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlurIntensity('strong')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: blurIntensity === 'strong' ? '1.5px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.15)',
+                    background: blurIntensity === 'strong' ? 'rgba(255, 67, 112, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                    color: blurIntensity === 'strong' ? '#fff' : 'rgba(255, 255, 255, 0.75)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  🌫️ 강한 블러 (확실하게)
+                </button>
+              </div>
+
+              {/* Brush Size & Undo Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)' }}>브러시 크기:</span>
+                {(['small', 'medium', 'large'] as BrushSize[]).map((size) => {
+                  const label = size === 'small' ? '소' : size === 'medium' ? '중' : '대';
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setBrushSize(size)}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: '6px',
+                        border: brushSize === size ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: brushSize === size ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
+                        color: brushSize === size ? '#fff' : 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
                   <button
-                    key={size}
                     type="button"
-                    onClick={() => setBrushSize(size)}
+                    onClick={handleUndo}
+                    disabled={!canUndo}
                     style={{
-                      padding: '3px 9px',
+                      padding: '3px 10px',
                       borderRadius: '6px',
-                      border: brushSize === size ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
-                      background: brushSize === size ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
-                      color: brushSize === size ? '#fff' : 'rgba(255, 255, 255, 0.7)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: canUndo ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                      color: canUndo ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: canUndo ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    ↩️ 되돌리기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetBlur}
+                    style={{
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: 'rgba(255, 255, 255, 0.8)',
                       fontSize: '11.5px',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
                   >
-                    {label} ({px})
+                    🔄 초기화
                   </button>
-                );
-              })}
-
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  style={{
-                    padding: '3px 9px',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    background: canUndo ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    color: canUndo ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    cursor: canUndo ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  ↩️ 되돌리기
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetMosaic}
-                  style={{
-                    padding: '3px 9px',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  🔄 초기화
-                </button>
+                </div>
               </div>
             </div>
           )}
@@ -798,7 +868,7 @@ export default function ImageEditorModal({
               boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
               borderRadius: '8px',
               overflow: 'hidden',
-              cursor: mode === 'mosaic' ? 'crosshair' : 'default',
+              cursor: mode === 'blur' ? 'crosshair' : 'default',
             }}
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}

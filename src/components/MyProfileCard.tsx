@@ -11,6 +11,7 @@ interface Props {
 }
 
 // Compress client-side images before uploading/storing as base64
+// Compress and optimize photo to lightweight WebP (target: ~30KB - 50KB)
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -18,19 +19,19 @@ function compressImage(file: File): Promise<string> {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1200;
+        const MAX_WIDTH = 720;
+        const MAX_HEIGHT = 960;
         let width = img.width;
         let height = img.height;
 
         if (width > height) {
           if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
+            height = Math.round((height * MAX_WIDTH) / width);
             width = MAX_WIDTH;
           }
         } else {
           if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
+            width = Math.round((width * MAX_HEIGHT) / height);
             height = MAX_HEIGHT;
           }
         }
@@ -39,8 +40,22 @@ function compressImage(file: File): Promise<string> {
         canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Try high-efficiency WebP format first (typically 30~50KB)
+          try {
+            const webpUrl = canvas.toDataURL('image/webp', 0.72);
+            if (webpUrl && webpUrl.startsWith('data:image/webp')) {
+              resolve(webpUrl);
+              return;
+            }
+          } catch {
+            // WebP not supported in browser, fall back to JPEG
+          }
+
+          resolve(canvas.toDataURL('image/jpeg', 0.70));
         } else {
           resolve(e.target?.result as string);
         }

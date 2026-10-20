@@ -92,24 +92,24 @@ export default function ImageEditorModal({
         setCanUndo(false);
       }
 
-      // 1. Generate Weak Blur layer (~4px blur: very soft & natural, face and eyes clearly visible)
+      // 1. Generate Weak Blur layer (~2.2px blur: ultra soft & subtle, face 100% visible)
       const weakCanvas = document.createElement('canvas');
       weakCanvas.width = canvasWidth;
       weakCanvas.height = canvasHeight;
       const wCtx = weakCanvas.getContext('2d');
       if (wCtx) {
-        wCtx.filter = 'blur(4px)';
+        wCtx.filter = 'blur(2.2px)';
         wCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
       }
       weakBlurCanvasRef.current = weakCanvas;
 
-      // 2. Generate Strong Blur layer (~10px blur: previous weak blur intensity)
+      // 2. Generate Strong Blur layer (8px blur: gentle obscure)
       const strongCanvas = document.createElement('canvas');
       strongCanvas.width = canvasWidth;
       strongCanvas.height = canvasHeight;
       const sCtx = strongCanvas.getContext('2d');
       if (sCtx) {
-        sCtx.filter = 'blur(10px)';
+        sCtx.filter = 'blur(8px)';
         sCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
       }
       strongBlurCanvasRef.current = strongCanvas;

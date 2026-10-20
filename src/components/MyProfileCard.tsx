@@ -307,7 +307,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       }
 
       setActivePhotoIdx(combined.length - 1);
-      setSaveMessage({ type: 'success', text: `사진 ${uploadedUrls.length}장이 Storage에 안전하게 등록되었습니다! (최대 3장)` });
+      setSaveMessage({ type: 'success', text: `사진 ${uploadedUrls.length}장이 안전하게 등록되었습니다! (최대 3장)` });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '사진 처리 실패';
       setSaveMessage({ type: 'error', text: msg });

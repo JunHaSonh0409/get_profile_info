@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ProfileData, ANIMAL_OPTIONS } from '@/lib/types';
 import StepLocation from './StepLocation';
+import ImageEditorModal from './ImageEditorModal';
 
 interface Props {
   profile: ProfileData;
@@ -97,6 +98,19 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Photo Editor Modal State (Crop & Mosaic)
+  const [editorState, setEditorState] = useState<{
+    isOpen: boolean;
+    pendingQueue: string[];
+    currentIndex: number;
+    processedUrls: string[];
+  }>({
+    isOpen: false,
+    pendingQueue: [],
+    currentIndex: 0,
+    processedUrls: [],
+  });
+
   // Sync profile photos with local storage backup so they persist reliably
   useEffect(() => {
     const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
@@ -163,7 +177,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
     setTouchDeltaX(0);
   };
 
-  // Upload photos to Supabase Storage via /api/upload (Max 3 photos)
+  // Upload photos: Read files first and open ImageEditorModal (Crop & Mosaic)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -177,24 +191,74 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       return;
     }
 
+    const selectedFiles = Array.from(files).slice(0, remainingSlots);
+    const readPromises = selectedFiles.map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    try {
+      const rawDataUrls = await Promise.all(readPromises);
+      if (rawDataUrls.length > 0) {
+        setEditorState({
+          isOpen: true,
+          pendingQueue: rawDataUrls,
+          currentIndex: 0,
+          processedUrls: [],
+        });
+      }
+    } catch (err) {
+      console.error('File read error:', err);
+      setSaveMessage({ type: 'error', text: '사진을 읽는 중 오류가 발생했습니다.' });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleEditorComplete = async (editedDataUrl: string) => {
+    const nextProcessed = [...editorState.processedUrls, editedDataUrl];
+
+    if (editorState.currentIndex + 1 < editorState.pendingQueue.length) {
+      // Proceed to next photo in queue
+      setEditorState((prev) => ({
+        ...prev,
+        currentIndex: prev.currentIndex + 1,
+        processedUrls: nextProcessed,
+      }));
+    } else {
+      // All queue photos processed! Close modal and upload to Storage
+      setEditorState({
+        isOpen: false,
+        pendingQueue: [],
+        currentIndex: 0,
+        processedUrls: [],
+      });
+      await uploadAndSavePhotos(nextProcessed);
+    }
+  };
+
+  const handleEditorSkip = async (originalDataUrl: string) => {
+    handleEditorComplete(originalDataUrl);
+  };
+
+  const handleEditorCancel = () => {
+    setEditorState({
+      isOpen: false,
+      pendingQueue: [],
+      currentIndex: 0,
+      processedUrls: [],
+    });
+  };
+
+  const uploadAndSavePhotos = async (dataUrls: string[]) => {
     setIsUploadingPhoto(true);
     setSaveMessage(null);
 
     try {
-      const selectedFiles = Array.from(files).slice(0, remainingSlots);
-      const newPhotoPromises: Promise<string>[] = [];
-      for (const file of selectedFiles) {
-        if (file.type.startsWith('image/')) {
-          newPhotoPromises.push(compressImage(file));
-        }
-      }
-
-      const compressedBase64s = await Promise.all(newPhotoPromises);
-      if (compressedBase64s.length === 0) {
-        setIsUploadingPhoto(false);
-        return;
-      }
-
       const cleanPhone = String(profile.phone || '').replace(/[^0-9]/g, '');
 
       // Upload to Supabase Storage via /api/upload
@@ -204,7 +268,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            images: compressedBase64s,
+            images: dataUrls,
             phone: cleanPhone,
           }),
         });
@@ -216,9 +280,10 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
         }
       } catch (uploadErr) {
         console.warn('Storage upload error, using fallback:', uploadErr);
-        uploadedUrls = compressedBase64s;
+        uploadedUrls = dataUrls;
       }
 
+      const currentList = isEditing ? editPhotos : currentPhotos;
       const combined = [...currentList, ...uploadedUrls].slice(0, 3);
 
       if (cleanPhone) {
@@ -248,7 +313,6 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       setSaveMessage({ type: 'error', text: msg });
     } finally {
       setIsUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -1576,6 +1640,19 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Photo Editor Modal (Crop & Mosaic/Blur) */}
+      {editorState.isOpen && editorState.pendingQueue[editorState.currentIndex] && (
+        <ImageEditorModal
+          isOpen={editorState.isOpen}
+          imageSrc={editorState.pendingQueue[editorState.currentIndex]}
+          currentIndex={editorState.currentIndex + 1}
+          totalCount={editorState.pendingQueue.length}
+          onCancel={handleEditorCancel}
+          onComplete={handleEditorComplete}
+          onSkipEdit={handleEditorSkip}
+        />
       )}
     </div>
   );

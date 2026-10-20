@@ -92,24 +92,24 @@ export default function ImageEditorModal({
         setCanUndo(false);
       }
 
-      // 1. Generate Weak Blur layer (~10px blur, preserves soft facial contours)
+      // 1. Generate Weak Blur layer (~4px blur: very soft & natural, face and eyes clearly visible)
       const weakCanvas = document.createElement('canvas');
       weakCanvas.width = canvasWidth;
       weakCanvas.height = canvasHeight;
       const wCtx = weakCanvas.getContext('2d');
       if (wCtx) {
-        wCtx.filter = 'blur(10px)';
+        wCtx.filter = 'blur(4px)';
         wCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
       }
       weakBlurCanvasRef.current = weakCanvas;
 
-      // 2. Generate Strong Blur layer (~26px blur, deep obscure smoothing)
+      // 2. Generate Strong Blur layer (~10px blur: previous weak blur intensity)
       const strongCanvas = document.createElement('canvas');
       strongCanvas.width = canvasWidth;
       strongCanvas.height = canvasHeight;
       const sCtx = strongCanvas.getContext('2d');
       if (sCtx) {
-        sCtx.filter = 'blur(26px)';
+        sCtx.filter = 'blur(10px)';
         sCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
       }
       strongBlurCanvasRef.current = strongCanvas;
@@ -757,7 +757,7 @@ export default function ImageEditorModal({
                     gap: '5px',
                   }}
                 >
-                  🫧 약한 블러 (은은하게)
+                  🫧 약한 블러 (이목구비 잘 보임)
                 </button>
                 <button
                   type="button"
@@ -776,7 +776,7 @@ export default function ImageEditorModal({
                     gap: '5px',
                   }}
                 >
-                  🌫️ 강한 블러 (확실하게)
+                  🌫️ 강한 블러 (기존 약한 블러 수준)
                 </button>
               </div>
 

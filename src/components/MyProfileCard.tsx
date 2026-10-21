@@ -204,7 +204,6 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
     try {
       const rawDataUrls = await Promise.all(readPromises);
       if (rawDataUrls.length > 0) {
-        window.scrollTo({ top: 0, behavior: 'instant' });
         setEditorState({
           isOpen: true,
           pendingQueue: rawDataUrls,
@@ -1400,7 +1399,10 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             <button
               type="button"
               className="btn-next"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                setIsEditing(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               style={{
                 flex: 1.6,
                 justifyContent: 'center',

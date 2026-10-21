@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface ImageEditorModalProps {
   isOpen: boolean;
@@ -33,7 +34,12 @@ export default function ImageEditorModal({
   onComplete,
   onSkipEdit,
 }: ImageEditorModalProps) {
-  const [mode, setMode] = useState<EditorMode>('crop');
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [mode, setMode] = useState<EditorMode>('blur');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [blurIntensity, setBlurIntensity] = useState<BlurIntensity>('weak');
   const [brushSize, setBrushSize] = useState<BrushSize>('medium');
@@ -72,7 +78,7 @@ export default function ImageEditorModal({
       if (!canvas) return;
 
       const containerWidth = Math.min(window.innerWidth - 32, 440);
-      const containerHeight = Math.min(Math.max(window.innerHeight * 0.30, 180), 240);
+      const containerHeight = Math.min(Math.max(window.innerHeight * 0.28, 160), 220);
 
       let scale = Math.min(containerWidth / img.width, containerHeight / img.height);
       if (scale > 1) scale = 1; // Don't upscale
@@ -546,25 +552,28 @@ export default function ImageEditorModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 999999,
         background: 'rgba(0, 0, 0, 0.88)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        padding: '12px 10px',
+        justifyContent: 'center',
+        padding: '16px 12px',
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
-        animation: 'fadeIn 0.2s ease-out',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
@@ -573,16 +582,17 @@ export default function ImageEditorModal({
       <div
         style={{
           width: '100%',
-          maxWidth: '500px',
-          margin: 'auto 0',
-          maxHeight: 'calc(100dvh - 24px)',
+          maxWidth: '480px',
+          maxHeight: 'min(94vh, 600px)',
+          margin: 'auto',
           background: 'rgba(18, 20, 29, 0.98)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '20px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 67, 112, 0.15)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 67, 112, 0.2)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          animation: 'fadeIn 0.2s ease-out',
         }}
       >
         {/* Header (Sticky top) */}
@@ -1011,7 +1021,7 @@ export default function ImageEditorModal({
                 <span>👆</span> 얼굴/이목구비 부위를 마우스나 손가락으로 쓱 문질러 가려주세요
               </div>
             )}
-            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(30vh, 240px)' }} />
+            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(28vh, 220px)' }} />
 
             {/* Crop Overlay (Only visible in Crop Mode) */}
             {mode === 'crop' && (
@@ -1259,5 +1269,7 @@ export default function ImageEditorModal({
       </div>
     </div>
   </div>
-);
+  );
+
+  return createPortal(modalContent, document.body);
 }

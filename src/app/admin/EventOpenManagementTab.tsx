@@ -271,16 +271,36 @@ export default function EventOpenManagementTab({ onShowToast }: Props) {
 
                 <span
                   style={{
-                    background: currentEvent.status === 'ongoing' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                    border: `1px solid ${currentEvent.status === 'ongoing' ? '#34d399' : '#fbbf24'}`,
-                    color: currentEvent.status === 'ongoing' ? '#34d399' : '#fbbf24',
+                    background:
+                      currentEvent.status === 'ongoing'
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : currentEvent.status === 'ended'
+                        ? 'rgba(148, 163, 184, 0.2)'
+                        : 'rgba(245, 158, 11, 0.2)',
+                    border: `1px solid ${
+                      currentEvent.status === 'ongoing'
+                        ? '#34d399'
+                        : currentEvent.status === 'ended'
+                        ? '#94a3b8'
+                        : '#fbbf24'
+                    }`,
+                    color:
+                      currentEvent.status === 'ongoing'
+                        ? '#34d399'
+                        : currentEvent.status === 'ended'
+                        ? '#cbd5e1'
+                        : '#fbbf24',
                     fontSize: '12px',
                     fontWeight: 700,
                     padding: '3px 10px',
                     borderRadius: '999px',
                   }}
                 >
-                  {currentEvent.status === 'ongoing' ? '● 현재 공식 오픈 상태 (OPEN)' : '● 오픈 대기 (Coming Soon)'}
+                  {currentEvent.status === 'ongoing'
+                    ? '● 현재 공식 오픈 상태 (NOW OPEN)'
+                    : currentEvent.status === 'ended'
+                    ? `🏁 이벤트 종료 (${(currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END)`
+                    : '● 오픈 대기 (Coming Soon)'}
                 </span>
 
                 <Link
@@ -305,35 +325,15 @@ export default function EventOpenManagementTab({ onShowToast }: Props) {
               <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
                 {currentEvent.status === 'ongoing'
                   ? '공식 오픈되어 홈페이지 카드가 [NOW OPEN]으로 표시되며, 누구나 카드를 눌러 참가 신청할 수 있습니다.'
+                  : currentEvent.status === 'ended'
+                  ? `이벤트가 종료되어 홈페이지 카드가 [${(currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END]로 표시되며 신규 참가 신청이 마감되었습니다.`
                   : '오픈 전 상태입니다. [공식 오픈하기] 버튼을 누르면 홈페이지 카드의 comming soon이 [NOW OPEN]으로 변경되고 신청이 활성화됩니다.'}
               </p>
             </div>
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {currentEvent.status !== 'ongoing' ? (
-                <button
-                  type="button"
-                  disabled={isTogglingStatus}
-                  onClick={() => handleToggleStatus('ongoing')}
-                  style={{
-                    background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '12px 24px',
-                    fontSize: '14px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <span>🟢</span> {currentEvent.volNumber} 공식 오픈하기 (NOW OPEN)
-                </button>
-              ) : (
+              {currentEvent.status === 'ongoing' ? (
                 <>
                   <button
                     type="button"
@@ -368,7 +368,91 @@ export default function EventOpenManagementTab({ onShowToast }: Props) {
                       cursor: 'pointer',
                     }}
                   >
-                    🔴 이벤트 마감/종료
+                    🏁 이벤트 마감/종료 ({((currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END 전환)
+                  </button>
+                </>
+              ) : currentEvent.status === 'ended' ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isTogglingStatus}
+                    onClick={() => handleToggleStatus('ongoing')}
+                    style={{
+                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '12px 24px',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>🟢</span> 다시 공식 오픈하기 (NOW OPEN)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isTogglingStatus}
+                    onClick={() => handleToggleStatus('upcoming')}
+                    style={{
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      color: '#fbbf24',
+                      borderRadius: '12px',
+                      padding: '12px 20px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⏸️ 오픈 대기 상태로 되돌리기 (Coming Soon)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={isTogglingStatus}
+                    onClick={() => handleToggleStatus('ongoing')}
+                    style={{
+                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '12px 24px',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>🟢</span> {currentEvent.volNumber} 공식 오픈하기 (NOW OPEN)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isTogglingStatus}
+                    onClick={() => handleToggleStatus('ended')}
+                    style={{
+                      background: 'rgba(148, 163, 184, 0.15)',
+                      border: '1px solid rgba(148, 163, 184, 0.35)',
+                      color: '#94a3b8',
+                      borderRadius: '12px',
+                      padding: '12px 20px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🏁 이벤트 종료 상태로 변경 ({((currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END)
                   </button>
                 </>
               )}

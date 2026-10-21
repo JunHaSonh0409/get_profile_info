@@ -551,15 +551,26 @@ export default function EventManagementTab({ onShowToast }: Props) {
                   style={{
                     fontSize: '13px',
                     fontWeight: 900,
-                    color: '#ef4444',
+                    color: formData.status === 'ongoing' ? '#34d399' : formData.status === 'ended' ? '#94a3b8' : '#ef4444',
                     letterSpacing: '3px',
                     textTransform: 'uppercase',
                     fontFamily: '"Outfit", sans-serif',
                   }}
                 >
-                  comming soon
+                  {formData.status === 'ongoing'
+                    ? 'NOW OPEN'
+                    : formData.status === 'ended'
+                    ? `${(formData.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END`
+                    : 'comming soon'}
                 </div>
-                <div style={{ fontSize: '10.5px', color: '#f87171', marginTop: '4px', fontWeight: 600 }}>
+                <div
+                  style={{
+                    fontSize: '10.5px',
+                    color: formData.status === 'ongoing' ? '#a7f3d0' : formData.status === 'ended' ? '#cbd5e1' : '#f87171',
+                    marginTop: '4px',
+                    fontWeight: 600,
+                  }}
+                >
                   {formData.title || '비밀 인연 매칭 프로젝트'}
                 </div>
               </div>

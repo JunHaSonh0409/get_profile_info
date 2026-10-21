@@ -8,6 +8,13 @@ interface Props {
   event: OrbitEvent;
 }
 
+const formatVolEnd = (vol?: string) => {
+  const v = (vol || 'VOL.1').trim();
+  if (/end$/i.test(v)) return v.toUpperCase();
+  const normalized = v.replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase();
+  return `${normalized} END`;
+};
+
 export default function EventDetailClient({ event: initialEvent }: Props) {
   const [event, setEvent] = useState<OrbitEvent>(initialEvent);
   const [isNotified, setIsNotified] = useState(false);
@@ -136,15 +143,20 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
   };
 
   const isEventOpen = event.status === 'ongoing';
+  const isEventEnded = event.status === 'ended';
 
   const statusLabel =
-    event.status === 'ongoing' ? '참가 신청 접수 중 (NOW OPEN)' : event.status === 'ended' ? '종료된 이벤트' : '오픈 대기중 (COMMING SOON)';
+    event.status === 'ongoing'
+      ? '참가 신청 접수 중 (NOW OPEN)'
+      : isEventEnded
+      ? `이벤트 종료 (${formatVolEnd(event.volNumber)})`
+      : '오픈 대기중 (COMMING SOON)';
   const statusColor =
-    event.status === 'ongoing' ? '#34d399' : event.status === 'ended' ? '#94a3b8' : '#ef4444';
+    event.status === 'ongoing' ? '#34d399' : isEventEnded ? '#94a3b8' : '#ef4444';
   const statusBg =
     event.status === 'ongoing'
       ? 'rgba(16, 185, 129, 0.15)'
-      : event.status === 'ended'
+      : isEventEnded
       ? 'rgba(148, 163, 184, 0.15)'
       : 'rgba(239, 68, 68, 0.15)';
 
@@ -382,7 +394,7 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
                   {event.volNumber}
                 </span>
                 <span style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>
-                  {isEventOpen ? '🟢 OFFICIAL NOW OPEN' : 'OFFICIAL EVENT POSTER'}
+                  {isEventOpen ? '🟢 OFFICIAL NOW OPEN' : isEventEnded ? `🏁 ${formatVolEnd(event.volNumber)}` : 'OFFICIAL EVENT POSTER'}
                 </span>
               </div>
             </div>
@@ -414,13 +426,15 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
                     borderRadius: '50%',
                     background: isEventOpen
                       ? 'radial-gradient(circle, rgba(52, 211, 153, 0.55) 0%, transparent 70%)'
+                      : isEventEnded
+                      ? 'radial-gradient(circle, rgba(148, 163, 184, 0.35) 0%, transparent 70%)'
                       : 'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, transparent 70%)',
                     filter: 'blur(20px)',
                   }}
                 />
                 <img
                   src="/images/crystal_question_mark.png"
-                  alt={isEventOpen ? 'Now Open' : 'Coming Soon'}
+                  alt={isEventOpen ? 'Now Open' : isEventEnded ? 'Event Ended' : 'Coming Soon'}
                   style={{
                     position: 'relative',
                     width: '100px',
@@ -428,6 +442,8 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
                     objectFit: 'contain',
                     filter: isEventOpen
                       ? 'drop-shadow(0 15px 30px rgba(0,0,0,0.8)) drop-shadow(0 0 25px rgba(52,211,153,0.7))'
+                      : isEventEnded
+                      ? 'drop-shadow(0 15px 30px rgba(0,0,0,0.8)) grayscale(0.7)'
                       : 'drop-shadow(0 15px 30px rgba(0,0,0,0.8)) drop-shadow(0 0 25px rgba(56,189,248,0.7))',
                   }}
                 />
@@ -437,20 +453,24 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
                 style={{
                   fontSize: '18px',
                   fontWeight: 900,
-                  color: isEventOpen ? '#34d399' : '#ef4444',
+                  color: isEventOpen ? '#34d399' : isEventEnded ? '#94a3b8' : '#ef4444',
                   letterSpacing: '5px',
                   textTransform: 'uppercase',
                   fontFamily: '"Outfit", sans-serif',
                   textShadow: isEventOpen
                     ? '0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(52, 211, 153, 0.8)'
+                    : isEventEnded
+                    ? '0 2px 10px rgba(0, 0, 0, 0.8)'
                     : '0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(239, 68, 68, 0.7)',
                 }}
               >
-                {isEventOpen ? 'NOW OPEN' : 'comming soon'}
+                {isEventOpen ? 'NOW OPEN' : isEventEnded ? formatVolEnd(event.volNumber) : 'comming soon'}
               </div>
-              <p style={{ fontSize: '12.5px', color: isEventOpen ? '#a7f3d0' : '#f87171', marginTop: '8px' }}>
+              <p style={{ fontSize: '12.5px', color: isEventOpen ? '#a7f3d0' : isEventEnded ? '#cbd5e1' : '#f87171', marginTop: '8px' }}>
                 {isEventOpen
                   ? '공식 오픈되었습니다! 아래 신청하기 버튼을 눌러 참가를 신청하세요.'
+                  : isEventEnded
+                  ? '본 이벤트는 종료되었습니다. 다음 볼륨 오픈을 기다려주세요!'
                   : '관리자 페이지에서 포스터 이미지가 등록되면 이곳에 고화질로 표시됩니다.'}
               </p>
             </div>
@@ -607,6 +627,29 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
                 <span>🚀</span> 지금 이벤트 신청하기 ({event.volNumber})
               </button>
             )
+          ) : isEventEnded ? (
+            /* EVENT ENDED */
+            <button
+              type="button"
+              disabled
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: '#94a3b8',
+                border: '1px solid rgba(148, 163, 184, 0.25)',
+                borderRadius: '16px',
+                padding: '16px',
+                fontSize: '15px',
+                fontWeight: 800,
+                cursor: 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              <span>🏁</span> 이벤트가 마감/종료되었습니다 ({formatVolEnd(event.volNumber)})
+            </button>
           ) : (
             /* EVENT NOT OPEN YET -> NOTIFICATION / COMING SOON */
             <button

@@ -110,8 +110,37 @@ export async function getAllEvents(): Promise<OrbitEvent[]> {
           updated_at: item.updated_at,
         }));
       }
-    } catch (e) {
-      // Supabase table may not exist yet, proceed to local
+
+      // If table exists but is empty, seed it with local events
+      if (!error && data && data.length === 0) {
+        const local = getLocalEvents();
+        for (const item of local) {
+          await supabase.from('events').upsert({
+            id: item.id,
+            slug: item.slug,
+            vol_number: item.volNumber,
+            title: item.title,
+            subtitle: item.subtitle,
+            status: item.status,
+            image_url: item.imageUrl,
+            d_day_text: item.dDayText,
+            badge_text: item.badgeText,
+            description: item.description,
+            date: item.date,
+            location: item.location,
+            capacity: item.capacity,
+            content: item.content,
+            updated_at: item.updated_at,
+          });
+        }
+        return local;
+      }
+
+      if (error) {
+        console.warn('[Supabase Events] fetch notice:', error.message);
+      }
+    } catch (e: any) {
+      console.warn('[Supabase Events] connection notice:', e?.message || e);
     }
   }
 
@@ -131,7 +160,7 @@ export async function getEventBySlug(slug: string): Promise<OrbitEvent | null> {
  * Upsert an event
  */
 export async function upsertEvent(eventData: Partial<OrbitEvent> & { slug: string }): Promise<OrbitEvent> {
-  const currentEvents = getLocalEvents();
+  const currentEvents = await getAllEvents();
   const normalizedSlug = eventData.slug.toLowerCase();
 
   const existingIndex = currentEvents.findIndex(
@@ -176,7 +205,7 @@ export async function upsertEvent(eventData: Partial<OrbitEvent> & { slug: strin
   // Sync to Supabase if table exists
   if (supabase) {
     try {
-      await supabase.from('events').upsert({
+      const { error } = await supabase.from('events').upsert({
         id: updatedEvent.id,
         slug: updatedEvent.slug,
         vol_number: updatedEvent.volNumber,
@@ -193,8 +222,12 @@ export async function upsertEvent(eventData: Partial<OrbitEvent> & { slug: strin
         content: updatedEvent.content,
         updated_at: new Date().toISOString(),
       });
-    } catch (e) {
-      // Ignore if Supabase schema isn't created yet
+
+      if (error) {
+        console.warn('[Supabase Events] upsert warning (table might need creation in SQL editor):', error.message);
+      }
+    } catch (e: any) {
+      console.warn('[Supabase Events] upsert exception:', e?.message || e);
     }
   }
 

@@ -53,7 +53,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    fetch('/api/events')
+    fetch('/api/events', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events) && data.events.length > 0) {

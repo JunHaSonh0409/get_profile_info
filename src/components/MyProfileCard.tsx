@@ -1382,7 +1382,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               ✨ 1:1 인연 매칭 접수 완료 상태
             </div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-              등록된 조건에 부합하는 멋진 인연이 매칭되면 안내 문자가 발송됩니다.
+              진행중인 이벤트가 있으면 참여하여 인연을 잡으세요!
             </p>
           </div>
 

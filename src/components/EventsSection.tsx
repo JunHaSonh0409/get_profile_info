@@ -206,7 +206,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             }}
           />
 
-          {/* 2. THE EVENT CARD (Black background with red typography to make '?' stand out) */}
+          {/* 2. THE EVENT CARD (Black background with 3D crystal question mark) */}
           <div
             style={{
               position: 'absolute',
@@ -224,7 +224,6 @@ export default function EventsSection({ onGoToProfile }: Props) {
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
               padding: '18px 14px',
               boxSizing: 'border-box',
               zIndex: 2,
@@ -258,27 +257,23 @@ export default function EventsSection({ onGoToProfile }: Props) {
               </div>
             </div>
 
-            {/* Center Content: Big '?' Icon & 'comming soon' (Clean, emoticons removed) */}
+            {/* Upper Content: 3D Crystal Question Mark Asset (Hero Position) */}
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                textAlign: 'center',
-                margin: 'auto 0',
-                padding: '0 20px',
+                marginTop: '10px',
                 width: '100%',
               }}
             >
-              {/* 3D Liquid Crystal Question Mark Asset (User Reference Design) */}
               <div
                 style={{
                   position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: '14px',
                   animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
                 }}
               >
@@ -301,7 +296,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   alt="Coming Soon Event"
                   style={{
                     position: 'relative',
-                    width: '92px',
+                    width: '94px',
                     height: 'auto',
                     maxHeight: '140px',
                     objectFit: 'contain',
@@ -312,62 +307,17 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   }}
                 />
               </div>
-
-              {/* Exact 'comming soon' Typography in Red */}
-              <div
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 900,
-                  color: '#ef4444',
-                  letterSpacing: '4.5px',
-                  textTransform: 'uppercase',
-                  fontFamily: '"Outfit", sans-serif',
-                  textShadow: '0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(239, 68, 68, 0.7)',
-                }}
-              >
-                comming soon
-              </div>
-
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: '#f87171',
-                  marginTop: '8px',
-                  lineHeight: 1.4,
-                  fontWeight: 500,
-                }}
-              >
-                비밀 인연 매칭 프로젝트<br />
-                <span style={{ fontSize: '10px', color: '#fca5a5', opacity: 0.9 }}>
-                  곧 첫 번째 이벤트가 공개됩니다
-                </span>
-              </div>
-            </div>
-
-            {/* Bottom Graphic Ribbon in Red */}
-            <div
-              style={{
-                textAlign: 'center',
-                paddingTop: '8px',
-                borderTop: '1px solid rgba(239, 68, 68, 0.3)',
-                fontSize: '10px',
-                color: '#ef4444',
-                fontWeight: 600,
-                letterSpacing: '1px',
-              }}
-            >
-              PREVIEW · D-DAY EVENT
             </div>
           </div>
 
-          {/* 3. FROSTED GLASS POCKET (Front Sleeve - exactly like reference image) */}
+          {/* 3. FROSTED GLASS POCKET (Front Sleeve - texts rendered clearly ON the case) */}
           <div
             style={{
               position: 'absolute',
               bottom: 0,
               width: '100%',
               height: '230px',
-              background: 'rgba(255, 255, 255, 0.12)',
+              background: 'rgba(255, 255, 255, 0.10)',
               backdropFilter: 'blur(16px) saturate(180%)',
               WebkitBackdropFilter: 'blur(16px) saturate(180%)',
               border: '1px solid rgba(255, 255, 255, 0.22)',
@@ -379,25 +329,71 @@ export default function EventsSection({ onGoToProfile }: Props) {
               zIndex: 3,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'flex-end',
-              padding: '16px',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '24px 18px 16px',
               boxSizing: 'border-box',
+              textAlign: 'center',
             }}
           >
-            {/* Subtle Pocket Frosted Watermark */}
+            {/* Center Content: Written ON the Card Case directly below '?' */}
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'rgba(255, 255, 255, 0.45)',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
+                marginTop: '12px',
+                width: '100%',
               }}
             >
-              ORBIT EVENT SLEEVE
+              {/* Exact 'comming soon' Typography in Red ON Card Case */}
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 900,
+                  color: '#ef4444',
+                  letterSpacing: '4.5px',
+                  textTransform: 'uppercase',
+                  fontFamily: '"Outfit", sans-serif',
+                  textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 18px rgba(239, 68, 68, 0.75)',
+                }}
+              >
+                comming soon
+              </div>
+
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#f87171',
+                  marginTop: '10px',
+                  lineHeight: 1.5,
+                  fontWeight: 600,
+                  textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
+                }}
+              >
+                비밀 인연 매칭 프로젝트<br />
+                <span style={{ fontSize: '10.5px', color: '#fca5a5', opacity: 0.95 }}>
+                  곧 첫 번째 이벤트가 공개됩니다
+                </span>
+              </div>
+            </div>
+
+            {/* Bottom Graphic Ribbon in Red ON Card Case */}
+            <div
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                paddingTop: '10px',
+                borderTop: '1px solid rgba(239, 68, 68, 0.35)',
+                fontSize: '10.5px',
+                color: '#ef4444',
+                fontWeight: 700,
+                letterSpacing: '1.5px',
+                textShadow: '0 1px 8px rgba(0, 0, 0, 0.8)',
+              }}
+            >
+              PREVIEW · D-DAY EVENT
             </div>
           </div>
         </div>

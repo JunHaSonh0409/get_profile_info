@@ -114,8 +114,8 @@ export default function NavigationDrawer({
                 <div style={{ fontSize: '17px', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
                   Orbit <span style={{ color: '#ff4370' }}>Menu</span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '0.2px' }}>
-                  인연 매칭 서비스
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', letterSpacing: '-0.2px', marginTop: '1px' }}>
+                  우주 모든 인연이 만날 때까지
                 </div>
               </div>
             </div>

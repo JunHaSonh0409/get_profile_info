@@ -71,8 +71,8 @@ export default function ImageEditorModal({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const containerWidth = Math.min(window.innerWidth - 40, 480);
-      const containerHeight = Math.min(window.innerHeight * 0.42, 340);
+      const containerWidth = Math.min(window.innerWidth - 32, 440);
+      const containerHeight = Math.min(Math.max(window.innerHeight * 0.30, 180), 240);
 
       let scale = Math.min(containerWidth / img.width, containerHeight / img.height);
       if (scale > 1) scale = 1; // Don't upscale
@@ -122,10 +122,9 @@ export default function ImageEditorModal({
 
   useEffect(() => {
     if (isOpen) {
-      window.scrollTo({ top: 0, behavior: 'instant' });
       document.body.style.overflow = 'hidden';
       initCanvas();
-      setMode('crop');
+      setMode('blur');
       setAspectRatio('3:4');
       setBlurIntensity('weak');
     }
@@ -456,10 +455,31 @@ export default function ImageEditorModal({
     dragActionRef.current = null;
   };
 
+  // Skip edit with mandatory blur check/confirmation
+  const handleSkipClick = () => {
+    const proceed = window.confirm(
+      '⚠️ [필수 안내]\n프로필 사진은 얼굴 모자이크(블러) 처리가 필수 사항입니다.\n\n얼굴이 노출되지 않는 풍경/사물 사진인 경우에만 원본으로 등록해주세요.\n\n모자이크 없이 원본으로 등록하시겠습니까?'
+    );
+    if (proceed) {
+      onSkipEdit(imageSrc);
+    }
+  };
+
   // Complete edit and export high-efficiency WebP (30~50KB)
   const handleDone = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Check if blur was applied
+    if (historyRef.current.length <= 1) {
+      const proceed = window.confirm(
+        '🚨 [필수 안내]\n얼굴 부위 모자이크(블러) 처리가 확인되지 않았습니다.\n\nOrbit은 프라이버시 보호를 위해 얼굴 모자이크(블러) 처리가 필수입니다.\n\n얼굴이 없는 풍경/사물 사진이어서 모자이크 없이 그대로 등록하시겠습니까?'
+      );
+      if (!proceed) {
+        setMode('blur');
+        return;
+      }
+    }
 
     setIsProcessing(true);
 
@@ -538,10 +558,12 @@ export default function ImageEditorModal({
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px 16px',
+        justifyContent: 'flex-start',
+        padding: '12px 10px',
         overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         animation: 'fadeIn 0.2s ease-out',
       }}
       onClick={(e) => {
@@ -551,31 +573,32 @@ export default function ImageEditorModal({
       <div
         style={{
           width: '100%',
-          maxWidth: '520px',
-          margin: 'auto',
-          maxHeight: 'min(90vh, 680px)',
-          background: 'rgba(18, 20, 29, 0.96)',
+          maxWidth: '500px',
+          margin: 'auto 0',
+          maxHeight: 'calc(100dvh - 24px)',
+          background: 'rgba(18, 20, 29, 0.98)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 67, 112, 0.15)',
+          borderRadius: '20px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 67, 112, 0.15)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
+        {/* Header (Sticky top) */}
         <div
           style={{
-            padding: '16px 20px',
+            padding: '12px 18px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexShrink: 0,
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '17px', fontWeight: 800, color: '#fff' }}>
+              <span style={{ fontSize: '16.5px', fontWeight: 800, color: '#fff' }}>
                 ✂️ 사진 편집기
               </span>
               {totalCount > 1 && (
@@ -594,7 +617,7 @@ export default function ImageEditorModal({
               )}
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.6)' }}>
-              비율을 맞추고 얼굴이나 가리고 싶은 부위를 자연스럽게 블러 처리하세요
+              비율을 맞추고 얼굴을 자연스럽게 모자이크(블러) 처리하세요
             </p>
           </div>
 
@@ -619,65 +642,148 @@ export default function ImageEditorModal({
           </button>
         </div>
 
-        {/* Toolbar Switcher */}
+        {/* Scrollable Center Body: Mandatory Alert + Toolbar + Canvas Area */}
         <div
           style={{
-            padding: '10px 16px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
-          {/* Main Mode Tabs */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setMode('crop')}
+          {/* 🚨 Mandatory Mosaic Warning Alert Banner */}
+          <div
+            style={{
+              margin: '12px 14px 4px',
+              padding: '12px 14px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(185, 28, 28, 0.32) 100%)',
+              border: '1.5px solid #ef4444',
+              boxShadow: '0 4px 18px rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              flexShrink: 0,
+            }}
+          >
+            <div
               style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: mode === 'crop' ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: mode === 'crop' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                color: mode === 'crop' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
+                fontSize: '18px',
+                background: 'rgba(239, 68, 68, 0.3)',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.15s',
+                flexShrink: 0,
               }}
             >
-              ✂️ 비율 자르기
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMode('blur')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: mode === 'blur' ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: mode === 'blur' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                color: mode === 'blur' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.15s',
-              }}
-            >
-              🌫️ 얼굴/배경 블러
-            </button>
+              🚨
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: '10.5px',
+                    fontWeight: 900,
+                    padding: '2px 7px',
+                    borderRadius: '6px',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  필수 안내
+                </span>
+                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#fef2f2' }}>
+                  얼굴/이목구비 모자이크(블러)는 필수입니다!
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#fca5a5', lineHeight: 1.45 }}>
+                Orbit은 개인정보 및 프라이버시 보호를 위해 <b>얼굴 부위 모자이크 처리를 필수</b>로 운영하고 있습니다.
+                아래 <b>'🌫️ 얼굴/배경 블러'</b> 탭에서 사진 속 얼굴을 문질러 가려주세요.
+              </p>
+            </div>
           </div>
+
+          {/* Toolbar Switcher */}
+          <div
+            style={{
+              padding: '10px 14px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              flexShrink: 0,
+            }}
+          >
+            {/* Main Mode Tabs */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setMode('blur')}
+                style={{
+                  flex: 1.2,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: mode === 'blur' ? '1.5px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.4)',
+                  background: mode === 'blur'
+                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.45) 100%)'
+                    : 'rgba(239, 68, 68, 0.08)',
+                  color: mode === 'blur' ? '#fff' : '#fca5a5',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: mode === 'blur' ? '0 0 16px rgba(239, 68, 68, 0.4)' : 'none',
+                  transition: 'all 0.15s',
+                }}
+              >
+                🌫️ 얼굴/배경 블러{' '}
+                <span
+                  style={{
+                    fontSize: '10px',
+                    background: '#ef4444',
+                    color: '#fff',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    fontWeight: 900,
+                  }}
+                >
+                  필수 🚨
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('crop')}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: mode === 'crop' ? '1.5px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: mode === 'crop' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                  color: mode === 'crop' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s',
+                }}
+              >
+                ✂️ 비율 자르기
+              </button>
+            </div>
 
           {/* Sub-tools for Crop Mode */}
           {mode === 'crop' && (
@@ -889,7 +995,23 @@ export default function ImageEditorModal({
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}
           >
-            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(42vh, 340px)' }} />
+            {/* Guide hint above canvas in blur mode */}
+            {mode === 'blur' && (
+              <div
+                style={{
+                  fontSize: '11.5px',
+                  color: '#fca5a5',
+                  marginBottom: '8px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <span>👆</span> 얼굴/이목구비 부위를 마우스나 손가락으로 쓱 문질러 가려주세요
+              </div>
+            )}
+            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(30vh, 240px)' }} />
 
             {/* Crop Overlay (Only visible in Crop Mode) */}
             {mode === 'crop' && (
@@ -1056,79 +1178,86 @@ export default function ImageEditorModal({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Footer Actions */}
-        <div
+      {/* Footer Actions (Always Sticky & Fully Visible) */}
+      <div
+        style={{
+          padding: '12px 16px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          background: 'rgba(15, 17, 24, 0.98)',
+          backdropFilter: 'blur(10px)',
+          flexShrink: 0,
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleSkipClick}
           style={{
-            padding: '14px 20px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            background: 'rgba(15, 17, 24, 0.98)',
+            padding: '9px 12px',
+            borderRadius: '10px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            color: 'rgba(255, 255, 255, 0.65)',
+            fontSize: '11.5px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
           }}
+          title="얼굴이 없는 풍경/사물 사진인 경우에만 사용"
         >
+          원본 등록 (풍경/사물만)
+        </button>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             type="button"
-            onClick={() => onSkipEdit(imageSrc)}
+            onClick={onCancel}
             style={{
-              padding: '10px 14px',
+              padding: '9px 14px',
               borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: 'rgba(255, 255, 255, 0.8)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#fff',
               fontSize: '12.5px',
               fontWeight: 600,
               cursor: 'pointer',
-              whiteSpace: 'nowrap',
             }}
           >
-            원본 그대로 등록
+            취소
           </button>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#fff',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              취소
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDone}
-              disabled={isProcessing}
-              style={{
-                padding: '10px 22px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #ff4370 0%, #ff6b8b 100%)',
-                border: 'none',
-                color: '#fff',
-                fontSize: '13.5px',
-                fontWeight: 700,
-                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                boxShadow: '0 4px 15px rgba(255, 67, 112, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              {isProcessing ? '처리 중...' : '✅ 편집 완료 및 등록'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleDone}
+            disabled={isProcessing}
+            style={{
+              padding: '9px 18px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #ff4370 0%, #ff6b8b 100%)',
+              border: 'none',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 15px rgba(255, 67, 112, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {isProcessing ? '처리 중...' : '✅ 편집 완료 및 등록'}
+          </button>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

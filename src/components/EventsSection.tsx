@@ -206,7 +206,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             }}
           />
 
-          {/* 2. THE EVENT CARD (Inside pocket, slides up on pull) */}
+          {/* 2. THE EVENT CARD (Black background with red typography to make '?' stand out) */}
           <div
             style={{
               position: 'absolute',
@@ -214,10 +214,11 @@ export default function EventsSection({ onGoToProfile }: Props) {
               width: '92%',
               height: '380px',
               borderRadius: '20px 20px 14px 14px',
-              background: 'linear-gradient(160deg, #0ea5e9 0%, #0284c7 45%, #1e1b4b 100%)',
+              background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               boxShadow: isPulled
-                ? '0 24px 50px rgba(14, 165, 233, 0.4), 0 0 35px rgba(56, 189, 248, 0.3)'
-                : '0 12px 30px rgba(0, 0, 0, 0.5)',
+                ? '0 24px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(239, 68, 68, 0.25)'
+                : '0 12px 30px rgba(0, 0, 0, 0.75)',
               transform: isPulled ? 'translateY(-48px)' : 'translateY(0)',
               transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               overflow: 'hidden',
@@ -229,21 +230,21 @@ export default function EventsSection({ onGoToProfile }: Props) {
               zIndex: 2,
             }}
           >
-            {/* Top Serial & Dots (Asset Style) */}
+            {/* Top Serial & Dots (Asset Style - Red) */}
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 paddingBottom: '8px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                borderBottom: '1px solid rgba(239, 68, 68, 0.3)',
               }}
             >
               <span
                 style={{
                   fontSize: '11px',
                   fontWeight: 800,
-                  color: '#e0f2fe',
+                  color: '#ef4444',
                   letterSpacing: '1.5px',
                   textTransform: 'uppercase',
                 }}
@@ -251,9 +252,9 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 ORBIT EVENT · VOL.01
               </span>
               <div style={{ display: 'flex', gap: '3px' }}>
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#fff' }} />
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#38bdf8' }} />
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#bae6fd' }} />
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.65)' }} />
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.35)' }} />
               </div>
             </div>
 
@@ -281,14 +282,14 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
                 }}
               >
-                {/* Backing Ambient Cyan Glow */}
+                {/* Backing Ambient Cyan Glow to make 3D crystal pop on black */}
                 <div
                   style={{
                     position: 'absolute',
-                    width: '100px',
-                    height: '100px',
+                    width: '110px',
+                    height: '110px',
                     borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(14, 165, 233, 0) 70%)',
+                    background: 'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
                     filter: 'blur(16px)',
                     zIndex: 0,
                     pointerEvents: 'none',
@@ -304,7 +305,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
                     height: 'auto',
                     maxHeight: '140px',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.65))',
+                    filter: 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 22px rgba(56, 189, 248, 0.75))',
                     zIndex: 1,
                     userSelect: 'none',
                     pointerEvents: 'none',
@@ -312,16 +313,16 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 />
               </div>
 
-              {/* Exact 'comming soon' Typography as requested */}
+              {/* Exact 'comming soon' Typography in Red */}
               <div
                 style={{
                   fontSize: '15px',
                   fontWeight: 900,
-                  color: '#ffffff',
+                  color: '#ef4444',
                   letterSpacing: '4.5px',
                   textTransform: 'uppercase',
                   fontFamily: '"Outfit", sans-serif',
-                  textShadow: '0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(224, 242, 254, 0.6)',
+                  textShadow: '0 2px 10px rgba(0, 0, 0, 0.8), 0 0 16px rgba(239, 68, 68, 0.7)',
                 }}
               >
                 comming soon
@@ -330,27 +331,27 @@ export default function EventsSection({ onGoToProfile }: Props) {
               <div
                 style={{
                   fontSize: '11px',
-                  color: '#bae6fd',
+                  color: '#f87171',
                   marginTop: '8px',
                   lineHeight: 1.4,
                   fontWeight: 500,
                 }}
               >
                 비밀 인연 매칭 프로젝트<br />
-                <span style={{ fontSize: '10px', color: '#7dd3fc', opacity: 0.9 }}>
+                <span style={{ fontSize: '10px', color: '#fca5a5', opacity: 0.9 }}>
                   곧 첫 번째 이벤트가 공개됩니다
                 </span>
               </div>
             </div>
 
-            {/* Bottom Graphic Ribbon */}
+            {/* Bottom Graphic Ribbon in Red */}
             <div
               style={{
                 textAlign: 'center',
                 paddingTop: '8px',
-                borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+                borderTop: '1px solid rgba(239, 68, 68, 0.3)',
                 fontSize: '10px',
-                color: '#e0f2fe',
+                color: '#ef4444',
                 fontWeight: 600,
                 letterSpacing: '1px',
               }}

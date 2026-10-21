@@ -112,3 +112,46 @@ ON storage.objects FOR DELETE
 TO anon, authenticated
 USING (bucket_id = 'profile-photos');
 
+-- ==============================================================================
+-- 5. Events 테이블 생성 (이벤트 카드 및 이벤트 상세 페이지 관리)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.events (
+    id VARCHAR(50) PRIMARY KEY,
+    slug VARCHAR(50) UNIQUE NOT NULL,
+    vol_number VARCHAR(50) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    subtitle VARCHAR(200) DEFAULT '',
+    status VARCHAR(20) DEFAULT 'upcoming',
+    image_url TEXT DEFAULT '',
+    d_day_text VARCHAR(100) DEFAULT '',
+    badge_text VARCHAR(100) DEFAULT 'ORBIT EXCLUSIVE',
+    description TEXT DEFAULT '',
+    date VARCHAR(100) DEFAULT '',
+    location VARCHAR(100) DEFAULT '',
+    capacity VARCHAR(100) DEFAULT '',
+    content TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- RLS 활성화
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+
+-- 누구나 이벤트 목록 및 상세 조회를 허용하는 정책
+DROP POLICY IF EXISTS "누구나 이벤트를 조회할 수 있습니다" ON public.events;
+CREATE POLICY "누구나 이벤트를 조회할 수 있습니다" 
+ON public.events 
+FOR SELECT 
+TO anon, authenticated
+USING (true);
+
+-- 관리자(또는 anon 서비스)가 이벤트를 생성/수정/삭제할 수 있는 정책
+DROP POLICY IF EXISTS "이벤트 관리 정책" ON public.events;
+CREATE POLICY "이벤트 관리 정책" 
+ON public.events 
+FOR ALL 
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+

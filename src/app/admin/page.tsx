@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import EventManagementTab from './EventManagementTab';
 
 interface ProfileRecord {
   id: string;
@@ -47,6 +48,7 @@ export default function AdminPage() {
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
   // Dashboard state
+  const [adminTab, setAdminTab] = useState<'profiles' | 'events'>('profiles');
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -729,7 +731,72 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* Stats Metric Cards */}
+      {/* Main Admin Tab Navigation */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          paddingBottom: '16px',
+          marginBottom: '28px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setAdminTab('profiles')}
+          style={{
+            background:
+              adminTab === 'profiles'
+                ? 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)'
+                : 'rgba(255, 255, 255, 0.05)',
+            color: adminTab === 'profiles' ? '#fff' : '#94a3b8',
+            border: adminTab === 'profiles' ? '1px solid #60a5fa' : '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '11px 22px',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: adminTab === 'profiles' ? '0 4px 16px rgba(59, 130, 246, 0.35)' : 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>👥</span> 프로필 관리 ({profiles.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAdminTab('events')}
+          style={{
+            background:
+              adminTab === 'events'
+                ? 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)'
+                : 'rgba(255, 255, 255, 0.05)',
+            color: adminTab === 'events' ? '#fff' : '#94a3b8',
+            border: adminTab === 'events' ? '1px solid #f87171' : '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '11px 22px',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: adminTab === 'events' ? '0 4px 16px rgba(239, 68, 68, 0.35)' : 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🎟️</span> 이벤트 카드 관리
+        </button>
+      </div>
+
+      {adminTab === 'events' ? (
+        <EventManagementTab onShowToast={showToast} />
+      ) : (
+        <>
+          {/* Stats Metric Cards */}
       {stats && (
         <section
           style={{
@@ -1277,6 +1344,8 @@ export default function AdminPage() {
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* Photo Lightbox Modal */}

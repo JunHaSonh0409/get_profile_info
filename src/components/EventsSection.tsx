@@ -1,15 +1,71 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { OrbitEvent } from '@/types/event';
 
 interface Props {
   onGoToProfile: () => void;
 }
 
+const defaultEvents: OrbitEvent[] = [
+  {
+    id: 'vol01',
+    slug: 'vol01',
+    volNumber: 'VOL.01',
+    title: '비밀 인연 매칭 프로젝트',
+    subtitle: '곧 첫 번째 이벤트가 공개됩니다',
+    status: 'upcoming',
+    imageUrl: '',
+    dDayText: 'PREVIEW · D-DAY EVENT',
+    badgeText: 'ORBIT EXCLUSIVE',
+    description: 'Orbit 회원들을 위한 특별한 첫 번째 시크릿 인연 매칭 이벤트입니다. 관리자 페이지에서 이벤트 포스터/이미지를 등록하면 카드에 즉시 반영됩니다.',
+  },
+  {
+    id: 'vol02',
+    slug: 'vol02',
+    volNumber: 'VOL.02',
+    title: '가을밤 별빛 블라인드 데이트',
+    subtitle: '두 번째 시크릿 매칭 라인업',
+    status: 'upcoming',
+    imageUrl: '',
+    dDayText: 'COMING SOON',
+    badgeText: 'ORBIT SEASON 2',
+    description: '깊어가는 가을, 별빛 아래서 나누는 진솔한 대화. 두 번째 Orbit 특별 매칭 이벤트입니다.',
+  },
+];
+
 export default function EventsSection({ onGoToProfile }: Props) {
+  const router = useRouter();
   const [isPulled, setIsPulled] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'ongoing' | 'upcoming'>('all');
   const [isNotificationSaved, setIsNotificationSaved] = useState(false);
+
+  // Dynamic events from API
+  const [events, setEvents] = useState<OrbitEvent[]>(defaultEvents);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          setEvents(data.events);
+        }
+      })
+      .catch(() => {
+        // Fallback to defaultEvents
+      });
+  }, []);
+
+  const currentEvent = events[selectedIndex] || events[0] || defaultEvents[0];
+  const nextEvent = events[(selectedIndex + 1) % events.length];
+  const prevEvent = events[(selectedIndex - 1 + events.length) % events.length];
+
+  const handleCardClick = () => {
+    router.push(`/events/${currentEvent.slug}`);
+  };
 
   return (
     <div
@@ -25,7 +81,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
       }}
     >
       {/* Category / Page Header */}
-      <div style={{ textAlign: 'center', marginBottom: '28px', width: '100%' }}>
+      <div style={{ textAlign: 'center', marginBottom: '24px', width: '100%' }}>
         <div
           style={{
             display: 'inline-flex',
@@ -42,7 +98,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             marginBottom: '12px',
           }}
         >
-          <span>🎟️</span> ORBIT EXCLUSIVE EVENT
+          <span>🎟️</span> {currentEvent.badgeText || 'ORBIT EXCLUSIVE EVENT'}
         </div>
         <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px', margin: 0 }}>
           진행중 <span style={{ color: '#38bdf8' }}>이벤트</span>
@@ -51,7 +107,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
           Orbit 회원들을 위한 특별한 오프라인 & 온라인 인연 매칭 라인업
         </p>
 
-        {/* Filter Pills */}
+        {/* Volume Selector Pills (VOL.01, VOL.02...) */}
         <div
           style={{
             display: 'inline-flex',
@@ -60,35 +116,34 @@ export default function EventsSection({ onGoToProfile }: Props) {
             borderRadius: '999px',
             padding: '4px',
             gap: '4px',
-            marginTop: '18px',
+            marginTop: '16px',
           }}
         >
-          {(
-            [
-              { id: 'all', label: '전체 (1)' },
-              { id: 'ongoing', label: '진행중 (0)' },
-              { id: 'upcoming', label: '오픈 예정 (1)' },
-            ] as const
-          ).map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => setActiveFilter(filter.id)}
-              style={{
-                background: activeFilter === filter.id ? '#0284c7' : 'transparent',
-                color: activeFilter === filter.id ? '#fff' : 'var(--text-muted)',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {filter.label}
-            </button>
-          ))}
+          {events.map((ev, idx) => {
+            const isSelected = idx === selectedIndex;
+            return (
+              <button
+                key={ev.id || ev.slug}
+                type="button"
+                onClick={() => setSelectedIndex(idx)}
+                style={{
+                  background: isSelected ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
+                  color: isSelected ? '#fff' : 'var(--text-muted)',
+                  border: isSelected ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
+                  borderRadius: '999px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: '1px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isSelected ? '0 2px 10px rgba(2, 132, 199, 0.4)' : 'none',
+                }}
+              >
+                {ev.volNumber}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -102,39 +157,52 @@ export default function EventsSection({ onGoToProfile }: Props) {
           justifyContent: 'center',
           alignItems: 'center',
           position: 'relative',
-          padding: '40px 0 30px',
+          padding: '30px 0 24px',
           perspective: '1000px',
         }}
       >
-        {/* Left Ghost Pocket Preview (Aesthetic shelf context) */}
+        {/* Left Ghost Pocket Preview (Clickable to switch volume) */}
         <div
+          onClick={() => setSelectedIndex((selectedIndex - 1 + events.length) % events.length)}
+          title={`이전: ${prevEvent?.volNumber || 'VOL'}`}
           style={{
             position: 'absolute',
             left: '-20px',
             width: '90px',
             height: '240px',
-            opacity: 0.25,
-            pointerEvents: 'none',
+            opacity: 0.35,
+            cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
+            transition: 'opacity 0.2s',
           }}
         >
           {/* Ghost Card Peek */}
           <div
             style={{
               height: '180px',
-              background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+              background: 'linear-gradient(135deg, #18181b 0%, #09090b 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '16px 16px 0 0',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              paddingTop: '10px',
+              color: '#ef4444',
+              fontSize: '10px',
+              fontWeight: 800,
             }}
-          />
+          >
+            {prevEvent?.volNumber}
+          </div>
           {/* Ghost Sleeve */}
           <div
             style={{
               height: '140px',
               marginTop: '-100px',
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.08)',
               backdropFilter: 'blur(10px)',
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '0 0 16px 16px',
@@ -142,35 +210,48 @@ export default function EventsSection({ onGoToProfile }: Props) {
           />
         </div>
 
-        {/* Right Ghost Pocket Preview */}
+        {/* Right Ghost Pocket Preview (Clickable to switch volume) */}
         <div
+          onClick={() => setSelectedIndex((selectedIndex + 1) % events.length)}
+          title={`다음: ${nextEvent?.volNumber || 'VOL'}`}
           style={{
             position: 'absolute',
             right: '-20px',
             width: '90px',
             height: '240px',
-            opacity: 0.25,
-            pointerEvents: 'none',
+            opacity: 0.35,
+            cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
+            transition: 'opacity 0.2s',
           }}
         >
           {/* Ghost Card Peek */}
           <div
             style={{
               height: '180px',
-              background: 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+              background: 'linear-gradient(135deg, #18181b 0%, #09090b 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '16px 16px 0 0',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              paddingTop: '10px',
+              color: '#ef4444',
+              fontSize: '10px',
+              fontWeight: 800,
             }}
-          />
+          >
+            {nextEvent?.volNumber}
+          </div>
           {/* Ghost Sleeve */}
           <div
             style={{
               height: '140px',
               marginTop: '-100px',
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.08)',
               backdropFilter: 'blur(10px)',
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '0 0 16px 16px',
@@ -178,11 +259,12 @@ export default function EventsSection({ onGoToProfile }: Props) {
           />
         </div>
 
-        {/* Center Main Event Pocket Container */}
+        {/* Center Main Event Pocket Container (Interactive Card & Sleeve) */}
         <div
           onMouseEnter={() => setIsPulled(true)}
           onMouseLeave={() => setIsPulled(false)}
-          onClick={() => setIsPulled(!isPulled)}
+          onClick={handleCardClick}
+          title="클릭하여 이벤트 상세 페이지로 이동"
           style={{
             position: 'relative',
             width: 'min(300px, 80vw)',
@@ -206,7 +288,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             }}
           />
 
-          {/* 2. THE EVENT CARD (Black background with 3D crystal question mark) */}
+          {/* 2. THE EVENT CARD (Black card with Image or 3D Crystal Question Mark) */}
           <div
             style={{
               position: 'absolute',
@@ -215,7 +297,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
               height: '380px',
               borderRadius: '20px 20px 14px 14px',
               background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               boxShadow: isPulled
                 ? '0 24px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(239, 68, 68, 0.25)'
                 : '0 12px 30px rgba(0, 0, 0, 0.75)',
@@ -229,14 +311,44 @@ export default function EventsSection({ onGoToProfile }: Props) {
               zIndex: 2,
             }}
           >
-            {/* Top Serial & Dots (Asset Style - Red) */}
+            {/* If registered image exists, display image with text overlayed directly on top */}
+            {currentEvent.imageUrl && (
+              <>
+                <img
+                  src={currentEvent.imageUrl}
+                  alt={currentEvent.title}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    zIndex: 0,
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 35%, rgba(0, 0, 0, 0.75) 100%)',
+                    zIndex: 1,
+                  }}
+                />
+              </>
+            )}
+
+            {/* Top Serial & Dots (Asset Style - Red, renders OVER image) */}
             <div
               style={{
+                position: 'relative',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 paddingBottom: '8px',
-                borderBottom: '1px solid rgba(239, 68, 68, 0.3)',
+                borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+                zIndex: 2,
               }}
             >
               <span
@@ -246,9 +358,10 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   color: '#ef4444',
                   letterSpacing: '1.5px',
                   textTransform: 'uppercase',
+                  textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
                 }}
               >
-                ORBIT EVENT · VOL.01
+                ORBIT EVENT · {currentEvent.volNumber}
               </span>
               <div style={{ display: 'flex', gap: '3px' }}>
                 <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />
@@ -257,56 +370,83 @@ export default function EventsSection({ onGoToProfile }: Props) {
               </div>
             </div>
 
-            {/* Upper Content: 3D Crystal Question Mark Asset (Hero Position) */}
+            {/* Upper Content: If no image, render 3D Crystal Question Mark Hero; if image, render hero preview */}
             <div
               style={{
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginTop: '10px',
+                marginTop: currentEvent.imageUrl ? '18px' : '10px',
                 width: '100%',
+                zIndex: 2,
               }}
             >
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
-                }}
-              >
-                {/* Backing Ambient Cyan Glow to make 3D crystal pop on black */}
+              {!currentEvent.imageUrl ? (
+                /* Preserved 3D Liquid Crystal Question Mark Asset */
                 <div
                   style={{
-                    position: 'absolute',
-                    width: '110px',
-                    height: '110px',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
-                    filter: 'blur(16px)',
-                    zIndex: 0,
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                <img
-                  src="/images/crystal_question_mark.png"
-                  alt="Coming Soon Event"
-                  style={{
                     position: 'relative',
-                    width: '94px',
-                    height: 'auto',
-                    maxHeight: '140px',
-                    objectFit: 'contain',
-                    filter: 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 22px rgba(56, 189, 248, 0.75))',
-                    zIndex: 1,
-                    userSelect: 'none',
-                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
                   }}
-                />
-              </div>
+                >
+                  {/* Backing Ambient Cyan Glow */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      width: '110px',
+                      height: '110px',
+                      borderRadius: '50%',
+                      background:
+                        'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
+                      filter: 'blur(16px)',
+                      zIndex: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+
+                  <img
+                    src="/images/crystal_question_mark.png"
+                    alt="Coming Soon Event"
+                    style={{
+                      position: 'relative',
+                      width: '94px',
+                      height: 'auto',
+                      maxHeight: '140px',
+                      objectFit: 'contain',
+                      filter:
+                        'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 22px rgba(56, 189, 248, 0.75))',
+                      zIndex: 1,
+                      userSelect: 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </div>
+              ) : (
+                /* Live badge when image is present */
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                    padding: '4px 12px',
+                    borderRadius: '999px',
+                    color: '#ef4444',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    backdropFilter: 'blur(6px)',
+                  }}
+                >
+                  <span>🎟️</span> POSTER PREVIEW
+                </div>
+              )}
             </div>
           </div>
 
@@ -323,8 +463,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
               border: '1px solid rgba(255, 255, 255, 0.22)',
               borderTop: '2.5px solid rgba(255, 255, 255, 0.55)',
               borderRadius: '0 0 24px 24px',
-              boxShadow:
-                '0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.35)',
+              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.35)',
               pointerEvents: 'none',
               zIndex: 3,
               display: 'flex',
@@ -336,18 +475,18 @@ export default function EventsSection({ onGoToProfile }: Props) {
               textAlign: 'center',
             }}
           >
-            {/* Center Content: Written ON the Card Case directly below '?' */}
+            {/* Center Content: Written ON the Card Case */}
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginTop: '12px',
+                marginTop: '10px',
                 width: '100%',
               }}
             >
-              {/* Exact 'comming soon' Typography in Red ON Card Case */}
+              {/* Exact 'comming soon' / Title Typography in Red ON Card Case */}
               <div
                 style={{
                   fontSize: '16px',
@@ -372,9 +511,10 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
                 }}
               >
-                비밀 인연 매칭 프로젝트<br />
+                {currentEvent.title || '비밀 인연 매칭 프로젝트'}
+                <br />
                 <span style={{ fontSize: '10.5px', color: '#fca5a5', opacity: 0.95 }}>
-                  곧 첫 번째 이벤트가 공개됩니다
+                  {currentEvent.subtitle || '곧 첫 번째 이벤트가 공개됩니다'}
                 </span>
               </div>
             </div>
@@ -393,31 +533,66 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 textShadow: '0 1px 8px rgba(0, 0, 0, 0.8)',
               }}
             >
-              PREVIEW · D-DAY EVENT
+              {currentEvent.dDayText || 'PREVIEW · D-DAY EVENT'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Interactive Micro-hint */}
+      {/* Interactive Micro-hint & Direct Link Button */}
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: '6px',
-          color: '#38bdf8',
-          fontSize: '12px',
-          fontWeight: 600,
-          marginBottom: '24px',
-          cursor: 'pointer',
-          padding: '6px 14px',
-          borderRadius: '999px',
-          background: 'rgba(14, 165, 233, 0.1)',
-          border: '1px solid rgba(14, 165, 233, 0.2)',
+          gap: '12px',
+          marginBottom: '26px',
+          width: '100%',
+          maxWidth: '480px',
         }}
-        onClick={() => setIsPulled(!isPulled)}
       >
-        <span>{isPulled ? '👇 카드를 다시 넣으려면 터치' : '👆 카드를 터치하여 위로 꺼내보세요'}</span>
+        <Link
+          href={`/events/${currentEvent.slug}`}
+          style={{
+            width: '100%',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            color: '#ef4444',
+            padding: '12px 20px',
+            borderRadius: '14px',
+            fontSize: '13.5px',
+            fontWeight: 800,
+            textDecoration: 'none',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 16px rgba(239, 68, 68, 0.2)',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🎟️</span> {currentEvent.volNumber} 이벤트 전용 페이지로 이동하기 →
+        </Link>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: '#38bdf8',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            padding: '4px 12px',
+            borderRadius: '999px',
+            background: 'rgba(14, 165, 233, 0.1)',
+            border: '1px solid rgba(14, 165, 233, 0.2)',
+          }}
+          onClick={() => setIsPulled(!isPulled)}
+        >
+          <span>{isPulled ? '👇 카드를 다시 넣으려면 터치' : '👆 카드를 터치하여 위로 꺼내보세요'}</span>
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -441,7 +616,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
-                background: '#0284c7',
+                background: '#ef4444',
                 color: '#fff',
                 fontSize: '11px',
                 fontWeight: 800,
@@ -449,10 +624,10 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 borderRadius: '6px',
               }}
             >
-              EVENT #01
+              {currentEvent.volNumber}
             </span>
             <span style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
-              비밀 인연 매칭 프로젝트
+              {currentEvent.title}
             </span>
           </div>
 
@@ -466,13 +641,13 @@ export default function EventsSection({ onGoToProfile }: Props) {
               borderRadius: '999px',
             }}
           >
-            오픈 준비 중
+            {currentEvent.status === 'ongoing' ? '진행중' : '오픈 준비 중'}
           </span>
         </div>
 
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
-          회원님들의 취향과 가치관을 기반으로 준비 중인 첫 번째 공식 매칭 이벤트입니다.
-          프로필을 미리 등록해두시면 이벤트 오픈 시 가장 먼저 우선 신청 혜택을 받으실 수 있습니다.
+          {currentEvent.description ||
+            '회원님들의 취향과 가치관을 기반으로 준비 중인 공식 매칭 이벤트입니다. 프로필을 미리 등록해두시면 이벤트 오픈 시 가장 먼저 우선 신청 혜택을 받으실 수 있습니다.'}
         </p>
 
         {/* Feature highlight bullet points */}

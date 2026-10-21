@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ProfileData, ANIMAL_OPTIONS } from '@/lib/types';
+import { ProfileData, ANIMAL_OPTIONS, MBTI_OPTIONS } from '@/lib/types';
 import StepLocation from './StepLocation';
 import ImageEditorModal from './ImageEditorModal';
 
@@ -843,6 +843,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 >
                   {profile.location || '지역 미입력'} · {formattedAge} · {profile.gender || '성별'}
                   {profile.height ? ` · ${profile.height}cm` : ''}
+                  {profile.mbti ? ` · ${profile.mbti}` : ''}
                 </p>
 
                 {/* Expand Hint Bar */}
@@ -992,6 +993,21 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 >
                   {profile.gender} · {formattedAge}
                 </span>
+                {profile.mbti && (
+                  <span
+                    style={{
+                      fontSize: '11.5px',
+                      padding: '2px 9px',
+                      borderRadius: '20px',
+                      background: 'rgba(99, 102, 241, 0.2)',
+                      color: '#a5b4fc',
+                      fontWeight: 700,
+                      border: '1px solid rgba(99, 102, 241, 0.35)',
+                    }}
+                  >
+                    {profile.mbti}
+                  </span>
+                )}
                 <span
                   style={{
                     fontSize: '11.5px',
@@ -1240,6 +1256,14 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               <span className="summary-key">키 (신장)</span>
               <span className="summary-val">{profile.height} cm</span>
             </div>
+            {profile.mbti && (
+              <div className="summary-row">
+                <span className="summary-key">MBTI</span>
+                <span className="summary-val" style={{ color: '#a5b4fc', fontWeight: 800 }}>
+                  {profile.mbti}
+                </span>
+              </div>
+            )}
             <div className="summary-row">
               <span className="summary-key">거주 지역</span>
               <span className="summary-val">{profile.location}</span>
@@ -1529,6 +1553,53 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
                 min={120}
                 max={230}
               />
+            </div>
+
+            {/* MBTI 성격 유형 */}
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ margin: 0 }}>MBTI 성격 유형</label>
+                {editData.mbti && (
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, mbti: '' })}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      fontSize: '11.5px',
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                    }}
+                  >
+                    초기화
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {MBTI_OPTIONS.map((m) => {
+                  const isSelected = editData.mbti === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setEditData({ ...editData, mbti: isSelected ? '' : m })}
+                      style={{
+                        padding: '7px 4px',
+                        borderRadius: '8px',
+                        border: isSelected ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isSelected ? 'rgba(255, 67, 112, 0.22)' : 'rgba(255, 255, 255, 0.03)',
+                        color: isSelected ? '#ff85a1' : 'var(--text-muted)',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? 800 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* 거주 지역 (구 단위) */}

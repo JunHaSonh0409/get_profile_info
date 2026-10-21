@@ -35,6 +35,7 @@ export interface AdminProfileRecord {
   age?: string | number;
   height?: number;
   location?: string;
+  mbti?: string;
   preferred_animals?: string[];
   preferredAnimals?: string[];
   preferred_appearance_detail?: string;
@@ -53,6 +54,7 @@ function normalizeAdminProfile(row: Record<string, any>): AdminProfileRecord {
   return {
     ...row,
     id: row.id,
+    mbti: row.mbti || '',
     preferredAnimals: row.preferred_animals || row.preferredAnimals || [],
     preferredAppearanceDetail: row.preferred_appearance_detail || row.preferredAppearanceDetail || '',
     preferredPartnerDetail: row.preferred_partner_detail || row.preferredPartnerDetail || '',

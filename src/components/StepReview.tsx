@@ -52,9 +52,10 @@ export default function StepReview({ data, onGoToStep, onSubmit, isSubmitting, e
         </div>
 
         <div className="summary-row">
-          <span className="summary-key">성별 / 출생연도</span>
+          <span className="summary-key">성별 / 출생 / MBTI</span>
           <span className="summary-val">
             {data.gender} · {data.age.endsWith('년생') ? data.age : `${data.age}년생`}
+            {data.mbti ? ` · ${data.mbti}` : ''}
             <button type="button" className="summary-edit-btn" onClick={() => onGoToStep(2)}>수정</button>
           </span>
         </div>

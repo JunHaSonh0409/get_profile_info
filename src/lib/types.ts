@@ -7,6 +7,7 @@ export interface ProfileData {
   age: string; // 몇년생 (예: '98년생')
   height: number | '';
   location: string;
+  mbti?: string;
   preferredAnimals: string[];
   preferredAppearanceDetail: string; // 외적인 구체적인 상 설명
   preferredPartnerDetail: string;
@@ -14,6 +15,13 @@ export interface ProfileData {
   photos?: string[];
   created_at?: string;
 }
+
+export const MBTI_OPTIONS = [
+  'INTJ', 'INTP', 'ENTJ', 'ENTP',
+  'INFJ', 'INFP', 'ENFJ', 'ENFP',
+  'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ',
+  'ISTP', 'ISFP', 'ESTP', 'ESFP',
+] as const;
 
 export interface AnimalOption {
   id: string;

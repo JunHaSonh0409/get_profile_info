@@ -27,6 +27,7 @@ const INITIAL_PROFILE: ProfileData = {
   age: '',
   height: '',
   location: '',
+  mbti: '',
   preferredAnimals: [],
   preferredAppearanceDetail: '',
   preferredPartnerDetail: '',
@@ -36,7 +37,7 @@ const INITIAL_PROFILE: ProfileData = {
 
 const STEP_TITLES: Record<number, string> = {
   1: '기본 인적사항',
-  2: '성별 및 출생연도',
+  2: '성별, 출생연도 & MBTI',
   3: '키 (신체 스펙)',
   4: '사는 곳 (구)',
   5: '선호하는 동물상',
@@ -501,6 +502,7 @@ export default function ProfilePage() {
           <StepGenderAge
             gender={formData.gender}
             age={formData.age}
+            mbti={formData.mbti}
             onChange={updateFormData}
             onEnter={handleNext}
           />

@@ -13,6 +13,7 @@ interface ProfileRecord {
   age: string | number;
   height: number;
   location: string;
+  mbti?: string;
   preferred_animals?: string[];
   preferredAnimals?: string[];
   preferred_appearance_detail?: string;
@@ -218,6 +219,7 @@ export default function AdminPage() {
       '키(cm)',
       '거주지역',
       '전화번호',
+      'MBTI',
       '선호동물상',
       '선호외모상세',
       '선호이성상세',
@@ -243,6 +245,7 @@ export default function AdminPage() {
         p.height || '',
         p.location || '',
         p.phone || '',
+        p.mbti || '',
         animals,
         appearance,
         partner,
@@ -278,7 +281,8 @@ export default function AdminPage() {
           const locMatch = (p.location || '').toLowerCase().includes(q);
           const introMatch = (p.self_intro || p.selfIntro || '').toLowerCase().includes(q);
           const partnerMatch = (p.preferred_partner_detail || p.preferredPartnerDetail || '').toLowerCase().includes(q);
-          if (!nameMatch && !nickMatch && !phoneMatch && !locMatch && !introMatch && !partnerMatch) {
+          const mbtiMatch = (p.mbti || '').toLowerCase().includes(q);
+          if (!nameMatch && !nickMatch && !phoneMatch && !locMatch && !introMatch && !partnerMatch && !mbtiMatch) {
             return false;
           }
         }
@@ -1171,8 +1175,23 @@ export default function AdminPage() {
                           {isMale ? '남성' : '여성'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>
-                        {p.age} · {p.height}cm · {p.location}
+                      <div style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{p.age} · {p.height}cm · {p.location}</span>
+                        {p.mbti && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '1px 7px',
+                              borderRadius: '4px',
+                              background: 'rgba(99, 102, 241, 0.2)',
+                              color: '#a5b4fc',
+                              border: '1px solid rgba(99, 102, 241, 0.35)',
+                            }}
+                          >
+                            {p.mbti}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

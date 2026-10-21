@@ -1,13 +1,16 @@
 'use client';
 
+import { MBTI_OPTIONS } from '@/lib/types';
+
 interface Props {
   gender: '남성' | '여성' | '';
   age: string;
-  onChange: (fields: { gender?: '남성' | '여성'; age?: string }) => void;
+  mbti?: string;
+  onChange: (fields: { gender?: '남성' | '여성'; age?: string; mbti?: string }) => void;
   onEnter?: () => void;
 }
 
-export default function StepGenderAge({ gender, age, onChange, onEnter }: Props) {
+export default function StepGenderAge({ gender, age, mbti, onChange, onEnter }: Props) {
   // 숫자만 추출해서 보여줌 (예: '98년생' -> '98')
   const rawNumber = age ? age.replace(/[^0-9]/g, '') : '';
 
@@ -29,9 +32,9 @@ export default function StepGenderAge({ gender, age, onChange, onEnter }: Props)
 
   return (
     <div className="animate-slide">
-      <div className="card-badge">STEP 2 · 성별 및 출생연도</div>
-      <h2 className="step-title">성별과 출생연도를<br />입력해주세요.</h2>
-      <p className="step-subtitle">어울리는 최적의 매칭 연령대를 추천해드리기 위해 필요해요.</p>
+      <div className="card-badge">STEP 2 · 성별, 출생연도 & MBTI</div>
+      <h2 className="step-title">성별과 출생연도,<br />MBTI를 알려주세요.</h2>
+      <p className="step-subtitle">어울리는 최적의 매칭 연령대와 성향을 추천해드리기 위해 필요해요.</p>
 
       {/* 성별 남/여 버튼 */}
       <div className="form-group">
@@ -93,6 +96,61 @@ export default function StepGenderAge({ gender, age, onChange, onEnter }: Props)
         <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '8px' }}>
           💡 콤보박스나 제한 없이 태어나신 연도 숫자(예: <b>98</b> 또는 <b>1998</b>)를 자유롭게 입력하시면 됩니다.
         </p>
+      </div>
+
+      {/* MBTI 성격 유형 선택 */}
+      <div className="form-group" style={{ marginTop: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <label className="form-label" style={{ margin: 0 }}>
+            MBTI 성격 유형 <span style={{ color: 'var(--text-muted)', fontSize: '11.5px', fontWeight: 500 }}>(선택)</span>
+          </label>
+          {mbti && (
+            <button
+              type="button"
+              onClick={() => onChange({ mbti: '' })}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                fontSize: '11.5px',
+                cursor: 'pointer',
+                padding: '2px 6px',
+              }}
+            >
+              선택 취소
+            </button>
+          )}
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+          나에게 꼭 맞는 성향의 상대를 추천해드리기 위해 활용돼요.
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '7px' }}>
+          {MBTI_OPTIONS.map((m) => {
+            const isSelected = mbti === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onChange({ mbti: isSelected ? '' : m })}
+                style={{
+                  padding: '9px 4px',
+                  borderRadius: '10px',
+                  border: isSelected ? '1.5px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: isSelected ? 'rgba(255, 67, 112, 0.22)' : 'rgba(255, 255, 255, 0.03)',
+                  color: isSelected ? '#ff85a1' : 'var(--text-muted)',
+                  fontSize: '12.5px',
+                  fontWeight: isSelected ? 800 : 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 2px 10px rgba(255, 67, 112, 0.3)' : 'none',
+                }}
+              >
+                {m}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

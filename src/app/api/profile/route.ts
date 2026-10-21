@@ -98,6 +98,7 @@ export async function POST(request: Request) {
       age,
       height,
       location,
+      mbti,
       preferredAnimals,
       preferredAppearanceDetail,
       preferredPartnerDetail,
@@ -159,6 +160,7 @@ export async function POST(request: Request) {
         age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
         height: Number(height),
         location: location.trim(),
+        mbti: mbti ? String(mbti).trim().toUpperCase() : '',
         preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],
         preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
         preferred_partner_detail: preferredPartnerDetail.trim(),
@@ -189,6 +191,7 @@ export async function POST(request: Request) {
         const fallbackPayload = { ...profilePayload };
         delete fallbackPayload.preferred_appearance_detail;
         delete fallbackPayload.photos;
+        delete fallbackPayload.mbti;
         const retryResult = await supabase
           .from('profiles')
           .insert([fallbackPayload])
@@ -267,6 +270,7 @@ export async function PUT(request: Request) {
       age,
       height,
       location,
+      mbti,
       preferredAnimals,
       preferredAppearanceDetail,
       preferredPartnerDetail,
@@ -295,6 +299,7 @@ export async function PUT(request: Request) {
         age: String(age).endsWith('년생') ? String(age).trim() : `${String(age).trim()}년생`,
         height: Number(height),
         location: location?.trim(),
+        ...(mbti !== undefined ? { mbti: mbti ? String(mbti).trim().toUpperCase() : '' } : {}),
         preferred_animals: Array.isArray(preferredAnimals) ? preferredAnimals : [],
         preferred_appearance_detail: preferredAppearanceDetail ? preferredAppearanceDetail.trim() : '',
         preferred_partner_detail: preferredPartnerDetail?.trim(),
@@ -332,6 +337,7 @@ export async function PUT(request: Request) {
         const fallbackPayload = { ...updatePayload };
         delete fallbackPayload.preferred_appearance_detail;
         delete fallbackPayload.photos;
+        delete fallbackPayload.mbti;
         let retryQuery = supabase.from('profiles').update(fallbackPayload);
         if (id) {
           retryQuery = retryQuery.eq('id', id);
@@ -377,6 +383,7 @@ export async function PUT(request: Request) {
 
       const normalized = updatedRow ? {
         ...updatedRow,
+        mbti: updatedRow.mbti || updatePayload.mbti || '',
         preferredAnimals: updatedRow.preferred_animals || updatedRow.preferredAnimals || [],
         preferredAppearanceDetail: updatedRow.preferred_appearance_detail || updatedRow.preferredAppearanceDetail || '',
         preferredPartnerDetail: updatedRow.preferred_partner_detail || updatedRow.preferredPartnerDetail || '',
@@ -415,6 +422,7 @@ function normalizeProfile(row: Record<string, any>) {
   if (!row) return row;
   return {
     ...row,
+    mbti: row.mbti || '',
     preferredAnimals: row.preferred_animals || row.preferredAnimals || [],
     preferredAppearanceDetail: row.preferred_appearance_detail || row.preferredAppearanceDetail || '',
     preferredPartnerDetail: row.preferred_partner_detail || row.preferredPartnerDetail || '',

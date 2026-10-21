@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     location VARCHAR(100) NOT NULL, -- 구 단위까지 (예: 서울 강남구, 경기 성남시 분당구)
     preferred_animals TEXT[] NOT NULL DEFAULT '{}', -- 선호 동물상 리스트
     preferred_appearance_detail TEXT DEFAULT '', -- 원하시는 외적인 구체적인 상 설명
+    mbti VARCHAR(10) DEFAULT '', -- MBTI 성격 유형 (예: ENFP, INTJ)
     preferred_partner_detail TEXT NOT NULL, -- 선호하는 이성 상세
     self_intro TEXT NOT NULL, -- 본인은 어떤 사람인가 상세
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- 기존 테이블 업데이트 및 전화번호 중복 방지 (1인 1프로필 제한)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_appearance_detail TEXT DEFAULT '';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS photos TEXT[] DEFAULT '{}';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS mbti VARCHAR(10) DEFAULT '';
 
 -- 기존 데이터 전화번호의 하이픈(-) 제거 표준화
 UPDATE public.profiles SET phone = regexp_replace(phone, '[^0-9]', '', 'g');

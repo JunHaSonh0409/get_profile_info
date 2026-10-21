@@ -1,0 +1,626 @@
+'use client';
+
+import React, { useState } from 'react';
+
+interface Props {
+  onGoToProfile: () => void;
+}
+
+export default function EventsSection({ onGoToProfile }: Props) {
+  const [isPulled, setIsPulled] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'ongoing' | 'upcoming'>('all');
+  const [isNotificationSaved, setIsNotificationSaved] = useState(false);
+
+  return (
+    <div
+      className="animate-fade"
+      style={{
+        width: '100%',
+        maxWidth: '540px',
+        margin: '0 auto',
+        padding: '10px 0 60px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      }}
+    >
+      {/* Category / Page Header */}
+      <div style={{ textAlign: 'center', marginBottom: '28px', width: '100%' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(14, 165, 233, 0.15)',
+            border: '1px solid rgba(14, 165, 233, 0.35)',
+            padding: '4px 12px',
+            borderRadius: '999px',
+            color: '#38bdf8',
+            fontSize: '12px',
+            fontWeight: 700,
+            letterSpacing: '0.5px',
+            marginBottom: '12px',
+          }}
+        >
+          <span>🎟️</span> ORBIT EXCLUSIVE EVENT
+        </div>
+        <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px', margin: 0 }}>
+          진행중 <span style={{ color: '#38bdf8' }}>이벤트</span>
+        </h1>
+        <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.5 }}>
+          Orbit 회원들을 위한 특별한 오프라인 & 온라인 인연 매칭 라인업
+        </p>
+
+        {/* Filter Pills */}
+        <div
+          style={{
+            display: 'inline-flex',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '999px',
+            padding: '4px',
+            gap: '4px',
+            marginTop: '18px',
+          }}
+        >
+          {(
+            [
+              { id: 'all', label: '전체 (1)' },
+              { id: 'ongoing', label: '진행중 (0)' },
+              { id: 'upcoming', label: '오픈 예정 (1)' },
+            ] as const
+          ).map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+              style={{
+                background: activeFilter === filter.id ? '#0284c7' : 'transparent',
+                color: activeFilter === filter.id ? '#fff' : 'var(--text-muted)',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* FROSTED GLASS POCKET SLEEVE ASSET (Inspired by user reference image)     */}
+      {/* ========================================================================= */}
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          position: 'relative',
+          padding: '40px 0 30px',
+          perspective: '1000px',
+        }}
+      >
+        {/* Left Ghost Pocket Preview (Aesthetic shelf context) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '-20px',
+            width: '90px',
+            height: '240px',
+            opacity: 0.25,
+            pointerEvents: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {/* Ghost Card Peek */}
+          <div
+            style={{
+              height: '180px',
+              background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+              borderRadius: '16px 16px 0 0',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+            }}
+          />
+          {/* Ghost Sleeve */}
+          <div
+            style={{
+              height: '140px',
+              marginTop: '-100px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '0 0 16px 16px',
+            }}
+          />
+        </div>
+
+        {/* Right Ghost Pocket Preview */}
+        <div
+          style={{
+            position: 'absolute',
+            right: '-20px',
+            width: '90px',
+            height: '240px',
+            opacity: 0.25,
+            pointerEvents: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {/* Ghost Card Peek */}
+          <div
+            style={{
+              height: '180px',
+              background: 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+              borderRadius: '16px 16px 0 0',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+            }}
+          />
+          {/* Ghost Sleeve */}
+          <div
+            style={{
+              height: '140px',
+              marginTop: '-100px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '0 0 16px 16px',
+            }}
+          />
+        </div>
+
+        {/* Center Main Event Pocket Container */}
+        <div
+          onMouseEnter={() => setIsPulled(true)}
+          onMouseLeave={() => setIsPulled(false)}
+          onClick={() => setIsPulled(!isPulled)}
+          style={{
+            position: 'relative',
+            width: 'min(300px, 80vw)',
+            height: '420px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          {/* 1. Backing Pocket Slot */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              width: '100%',
+              height: '240px',
+              background: 'rgba(10, 14, 26, 0.85)',
+              borderRadius: '0 0 24px 24px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65)',
+            }}
+          />
+
+          {/* 2. THE EVENT CARD (Inside pocket, slides up on pull) */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              width: '92%',
+              height: '380px',
+              borderRadius: '20px 20px 14px 14px',
+              background: 'linear-gradient(160deg, #0ea5e9 0%, #0284c7 45%, #1e1b4b 100%)',
+              boxShadow: isPulled
+                ? '0 24px 50px rgba(14, 165, 233, 0.4), 0 0 35px rgba(56, 189, 248, 0.3)'
+                : '0 12px 30px rgba(0, 0, 0, 0.5)',
+              transform: isPulled ? 'translateY(-48px)' : 'translateY(0)',
+              transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              padding: '18px 14px',
+              boxSizing: 'border-box',
+              zIndex: 2,
+            }}
+          >
+            {/* Top Serial & Dots (Asset Style) */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingBottom: '8px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#e0f2fe',
+                  letterSpacing: '1.5px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                ORBIT EVENT · VOL.01
+              </span>
+              <div style={{ display: 'flex', gap: '3px' }}>
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#fff' }} />
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#38bdf8' }} />
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#bae6fd' }} />
+              </div>
+            </div>
+
+            {/* Left & Right Photobooth Filmstrip Graphic Borders (From Reference Image) */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '42px',
+                bottom: '12px',
+                left: '8px',
+                width: '32px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                opacity: 0.75,
+                pointerEvents: 'none',
+              }}
+            >
+              {[1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(0, 0, 0, 0.45)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                  }}
+                >
+                  {idx === 1 ? '📸' : idx === 2 ? '✨' : '💫'}
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                position: 'absolute',
+                top: '42px',
+                bottom: '12px',
+                right: '8px',
+                width: '32px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                opacity: 0.75,
+                pointerEvents: 'none',
+              }}
+            >
+              {[1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(0, 0, 0, 0.45)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                  }}
+                >
+                  {idx === 1 ? '💘' : idx === 2 ? '💌' : '🌹'}
+                </div>
+              ))}
+            </div>
+
+            {/* Center Content: Big '?' Icon & 'comming soon' */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                margin: 'auto 0',
+                padding: '0 40px',
+              }}
+            >
+              {/* Prominent '?' Icon */}
+              <div
+                style={{
+                  width: '84px',
+                  height: '84px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle at 35% 30%, #38bdf8 0%, #0369a1 70%, #0c4a6e 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px solid rgba(255, 255, 255, 0.65)',
+                  boxShadow:
+                    '0 10px 25px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
+                  marginBottom: '16px',
+                  animation: 'pulseGlow 2.5s infinite alternate ease-in-out',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '52px',
+                    fontWeight: 900,
+                    color: '#ffffff',
+                    fontFamily: '"Outfit", sans-serif',
+                    lineHeight: 1,
+                    textShadow: '0 2px 10px rgba(0, 0, 0, 0.6)',
+                  }}
+                >
+                  ?
+                </span>
+              </div>
+
+              {/* Exact 'comming soon' Typography as requested */}
+              <div
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 900,
+                  color: '#ffffff',
+                  letterSpacing: '4.5px',
+                  textTransform: 'uppercase',
+                  fontFamily: '"Outfit", sans-serif',
+                  textShadow: '0 2px 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(224, 242, 254, 0.6)',
+                }}
+              >
+                comming soon
+              </div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#bae6fd',
+                  marginTop: '8px',
+                  lineHeight: 1.4,
+                  fontWeight: 500,
+                }}
+              >
+                비밀 인연 매칭 프로젝트<br />
+                <span style={{ fontSize: '10px', color: '#7dd3fc', opacity: 0.9 }}>
+                  곧 첫 번째 이벤트가 공개됩니다
+                </span>
+              </div>
+            </div>
+
+            {/* Bottom Graphic Ribbon */}
+            <div
+              style={{
+                textAlign: 'center',
+                paddingTop: '8px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+                fontSize: '10px',
+                color: '#e0f2fe',
+                fontWeight: 600,
+                letterSpacing: '1px',
+              }}
+            >
+              PREVIEW · D-DAY EVENT
+            </div>
+          </div>
+
+          {/* 3. FROSTED GLASS POCKET (Front Sleeve - exactly like reference image) */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              width: '100%',
+              height: '230px',
+              background: 'rgba(255, 255, 255, 0.12)',
+              backdropFilter: 'blur(16px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              borderTop: '2.5px solid rgba(255, 255, 255, 0.55)',
+              borderRadius: '0 0 24px 24px',
+              boxShadow:
+                '0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.35)',
+              pointerEvents: 'none',
+              zIndex: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              padding: '16px',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Subtle Pocket Frosted Watermark */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                color: 'rgba(255, 255, 255, 0.55)',
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '1px',
+              }}
+            >
+              <span>💫</span> ORBIT EVENT SLEEVE
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Micro-hint */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          color: '#38bdf8',
+          fontSize: '12px',
+          fontWeight: 600,
+          marginBottom: '24px',
+          cursor: 'pointer',
+          padding: '6px 14px',
+          borderRadius: '999px',
+          background: 'rgba(14, 165, 233, 0.1)',
+          border: '1px solid rgba(14, 165, 233, 0.2)',
+        }}
+        onClick={() => setIsPulled(!isPulled)}
+      >
+        <span>{isPulled ? '👇 카드를 다시 넣으려면 터치' : '👆 카드를 터치하여 위로 꺼내보세요'}</span>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* EVENT DETAILS & PRE-REGISTRATION NOTIFICATION CARD                        */}
+      {/* ========================================================================= */}
+      <div
+        className="profile-card"
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          background: 'rgba(22, 27, 46, 0.75)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '20px',
+          padding: '24px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                background: '#0284c7',
+                color: '#fff',
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '3px 8px',
+                borderRadius: '6px',
+              }}
+            >
+              EVENT #01
+            </span>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
+              비밀 인연 매칭 프로젝트
+            </span>
+          </div>
+
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#38bdf8',
+              background: 'rgba(14, 165, 233, 0.15)',
+              padding: '3px 8px',
+              borderRadius: '999px',
+            }}
+          >
+            오픈 준비 중
+          </span>
+        </div>
+
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+          회원님들의 취향과 가치관을 기반으로 준비 중인 첫 번째 공식 매칭 이벤트입니다.
+          프로필을 미리 등록해두시면 이벤트 오픈 시 가장 먼저 우선 신청 혜택을 받으실 수 있습니다.
+        </p>
+
+        {/* Feature highlight bullet points */}
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.6)',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            fontSize: '12px',
+            color: '#cbd5e1',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#38bdf8' }}>✓</span> 이상형 조건에 맞춤 매칭되는 프라이빗 이벤트
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#38bdf8' }}>✓</span> 프로필 등록 회원 전용 우선 초대권 제공
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#38bdf8' }}>✓</span> 세부 일정 및 장소는 오픈 시 일괄 안내
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+          <button
+            type="button"
+            onClick={onGoToProfile}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '14px',
+              padding: '14px',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(14, 165, 233, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span>💫</span> 프로필 등록/확인하러 가기 →
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNotificationSaved(true)}
+            style={{
+              width: '100%',
+              background: isNotificationSaved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+              color: isNotificationSaved ? '#34d399' : 'var(--text-muted)',
+              border: `1px solid ${isNotificationSaved ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
+              borderRadius: '14px',
+              padding: '11px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <span>{isNotificationSaved ? '✓' : '🔔'}</span>
+            {isNotificationSaved ? '이벤트 오픈 알림이 예약되었습니다' : '이벤트 오픈 시 알림 받기'}
+          </button>
+        </div>
+      </div>
+
+      {/* Animation Styles */}
+      <style jsx>{`
+        @keyframes pulseGlow {
+          0% {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.6);
+            transform: scale(0.98);
+          }
+          100% {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 38px rgba(56, 189, 248, 0.95);
+            transform: scale(1.02);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

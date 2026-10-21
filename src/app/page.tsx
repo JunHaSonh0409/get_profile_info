@@ -14,6 +14,8 @@ import StepReview from '@/components/StepReview';
 import StepSuccess from '@/components/StepSuccess';
 import LoginScreen from '@/components/LoginScreen';
 import MyProfileCard from '@/components/MyProfileCard';
+import NavigationDrawer from '@/components/NavigationDrawer';
+import EventsSection from '@/components/EventsSection';
 
 const TOTAL_STEPS = 8;
 
@@ -44,8 +46,11 @@ const STEP_TITLES: Record<number, string> = {
 };
 
 type ViewMode = 'LOADING' | 'LOGIN' | 'REGISTER' | 'MY_PROFILE';
+type MainTab = 'PROFILE' | 'EVENTS';
 
 export default function ProfilePage() {
+  const [activeTab, setActiveTab] = useState<MainTab>('PROFILE');
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('LOADING');
   const [authPhone, setAuthPhone] = useState<string>('');
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
@@ -296,10 +301,90 @@ export default function ProfilePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 1. Loading State
+  // Reusable Top-Left Menu Trigger Button
+  const renderMenuTrigger = () => (
+    <button
+      type="button"
+      onClick={() => setIsMenuOpen(true)}
+      aria-label="서비스 메뉴 열기"
+      style={{
+        position: 'fixed',
+        top: '18px',
+        left: '18px',
+        zIndex: 900,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        background: 'rgba(15, 23, 42, 0.82)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.16)',
+        borderRadius: '999px',
+        padding: '8px 14px',
+        color: '#fff',
+        fontSize: '13px',
+        fontWeight: 700,
+        cursor: 'pointer',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(14, 165, 233, 0.15)',
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      <span style={{ display: 'flex', flexDirection: 'column', gap: '3.5px', width: '15px' }}>
+        <span style={{ width: '100%', height: '2px', background: '#fff', borderRadius: '2px' }} />
+        <span
+          style={{
+            width: '65%',
+            height: '2px',
+            background: activeTab === 'EVENTS' ? '#38bdf8' : '#ff4370',
+            borderRadius: '2px',
+          }}
+        />
+        <span style={{ width: '100%', height: '2px', background: '#fff', borderRadius: '2px' }} />
+      </span>
+      <span style={{ letterSpacing: '-0.3px' }}>메뉴</span>
+      {activeTab === 'EVENTS' && (
+        <span
+          style={{
+            fontSize: '10px',
+            background: '#0ea5e9',
+            color: '#fff',
+            padding: '1px 6px',
+            borderRadius: '999px',
+            fontWeight: 800,
+          }}
+        >
+          이벤트
+        </span>
+      )}
+    </button>
+  );
+
+  const renderNavDrawer = () => (
+    <NavigationDrawer
+      isOpen={isMenuOpen}
+      onClose={() => setIsMenuOpen(false)}
+      activeTab={activeTab}
+      onSelectTab={(tab) => setActiveTab(tab)}
+    />
+  );
+
+  // 1. Ongoing Events View Tab
+  if (activeTab === 'EVENTS') {
+    return (
+      <main className="app-container" style={{ paddingTop: '64px' }}>
+        {renderMenuTrigger()}
+        {renderNavDrawer()}
+        <EventsSection onGoToProfile={() => setActiveTab('PROFILE')} />
+      </main>
+    );
+  }
+
+  // 2. Loading State
   if (viewMode === 'LOADING') {
     return (
-      <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center', paddingTop: '64px' }}>
+        {renderMenuTrigger()}
+        {renderNavDrawer()}
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '32px', marginBottom: '16px', display: 'inline-block', animation: 'spin 1.5s infinite linear' }}>
             💫
@@ -310,19 +395,23 @@ export default function ProfilePage() {
     );
   }
 
-  // 2. Login Screen View
+  // 3. Login Screen View
   if (viewMode === 'LOGIN') {
     return (
-      <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <main className="app-container" style={{ justifyContent: 'center', alignItems: 'center', paddingTop: '64px' }}>
+        {renderMenuTrigger()}
+        {renderNavDrawer()}
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       </main>
     );
   }
 
-  // 3. Existing Member: My Profile Card View
+  // 4. Existing Member: My Profile Card View
   if (viewMode === 'MY_PROFILE' && memberProfile) {
     return (
-      <main className="app-container">
+      <main className="app-container" style={{ paddingTop: '64px' }}>
+        {renderMenuTrigger()}
+        {renderNavDrawer()}
         <MyProfileCard
           profile={memberProfile}
           onUpdate={(updated) => setMemberProfile(updated)}
@@ -332,9 +421,11 @@ export default function ProfilePage() {
     );
   }
 
-  // 4. New Member: Registration Flow
+  // 5. New Member: Registration Flow
   return (
-    <main className="app-container">
+    <main className="app-container" style={{ paddingTop: '64px' }}>
+      {renderMenuTrigger()}
+      {renderNavDrawer()}
       {/* Top Navigation Brand */}
       <header
         style={{

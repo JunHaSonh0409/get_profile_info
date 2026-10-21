@@ -257,74 +257,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
               </div>
             </div>
 
-            {/* Left & Right Photobooth Filmstrip Graphic Borders (From Reference Image) */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '42px',
-                bottom: '12px',
-                left: '8px',
-                width: '32px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                opacity: 0.75,
-                pointerEvents: 'none',
-              }}
-            >
-              {[1, 2, 3].map((idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(0, 0, 0, 0.45)',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                  }}
-                >
-                  {idx === 1 ? '📸' : idx === 2 ? '✨' : '💫'}
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                position: 'absolute',
-                top: '42px',
-                bottom: '12px',
-                right: '8px',
-                width: '32px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                opacity: 0.75,
-                pointerEvents: 'none',
-              }}
-            >
-              {[1, 2, 3].map((idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(0, 0, 0, 0.45)',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                  }}
-                >
-                  {idx === 1 ? '💘' : idx === 2 ? '💌' : '🌹'}
-                </div>
-              ))}
-            </div>
-
-            {/* Center Content: Big '?' Icon & 'comming soon' */}
+            {/* Center Content: Big '?' Icon & 'comming soon' (Clean, emoticons removed) */}
             <div
               style={{
                 display: 'flex',
@@ -333,7 +266,8 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 justifyContent: 'center',
                 textAlign: 'center',
                 margin: 'auto 0',
-                padding: '0 40px',
+                padding: '0 20px',
+                width: '100%',
               }}
             >
               {/* Prominent '?' Icon */}
@@ -444,14 +378,14 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px',
-                color: 'rgba(255, 255, 255, 0.55)',
+                color: 'rgba(255, 255, 255, 0.45)',
                 fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '1px',
+                fontWeight: 700,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
               }}
             >
-              <span>💫</span> ORBIT EVENT SLEEVE
+              ORBIT EVENT SLEEVE
             </div>
           </div>
         </div>

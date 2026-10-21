@@ -6,9 +6,10 @@ import { OrbitEvent } from '@/types/event';
 
 interface Props {
   onShowToast: (msg: string) => void;
+  onSwitchToOpenManage?: () => void;
 }
 
-export default function EventManagementTab({ onShowToast }: Props) {
+export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }: Props) {
   const [events, setEvents] = useState<OrbitEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSlug, setSelectedSlug] = useState<string>('vol01');
@@ -153,15 +154,22 @@ export default function EventManagementTab({ onShowToast }: Props) {
 
     setIsSaving(true);
     try {
+      // Keep existing event status from server so card edits never overwrite open/end status
+      const existingEvent = events.find((e) => e.slug === formData.slug);
+      const payload = {
+        ...formData,
+        status: existingEvent ? existingEvent.status : formData.status || 'upcoming',
+      };
+
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        onShowToast(`✓ ${formData.volNumber} 이벤트가 성공적으로 저장되었습니다!`);
+        onShowToast(`✓ ${formData.volNumber} 이벤트 카드 정보가 성공적으로 저장되었습니다!`);
         await fetchEvents();
       } else {
         alert(data.error || '이벤트 저장 중 오류가 발생했습니다.');
@@ -211,10 +219,10 @@ export default function EventManagementTab({ onShowToast }: Props) {
       >
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🎟️</span> 이벤트 카드 & 상세 페이지 관리
+            <span>🎟️</span> 이벤트 카드 관리 (이미지 & 텍스트 설정)
           </h2>
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-            카드에 들어갈 포스터 이미지를 등록하고 텍스트를 배치합니다. 카드를 누르면 이동할 <strong style={{ color: '#ef4444' }}>/events/vol01</strong> 링크도 자동 생성됩니다.
+            카드에 들어갈 포스터 이미지를 등록하고 제목·서브타이틀 등 텍스트를 편집합니다. (※ 실제 오픈/종료 결정은 <strong style={{ color: '#34d399' }}>[🚀 이벤트 오픈 및 관리]</strong> 탭에서 제어합니다)
           </p>
         </div>
 
@@ -756,30 +764,66 @@ export default function EventManagementTab({ onShowToast }: Props) {
               />
             </div>
 
-            {/* Status & Ribbon Text */}
+            {/* Status (Read-Only) & Ribbon Text */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  이벤트 상태
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>이벤트 상태 (읽기 전용)</span>
+                  {onSwitchToOpenManage && (
+                    <button
+                      type="button"
+                      onClick={onSwitchToOpenManage}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      🚀 오픈/종료 설정 탭으로 이동 →
+                    </button>
+                  )}
                 </label>
-                <select
-                  value={formData.status || 'upcoming'}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                <div
                   style={{
                     width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
+                    background: 'rgba(15, 23, 42, 0.85)',
                     border: '1px solid rgba(255, 255, 255, 0.12)',
                     color: '#f8fafc',
                     padding: '10px 12px',
                     borderRadius: '10px',
                     fontSize: '13px',
                     boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <option value="upcoming">오픈 예정 (Upcoming)</option>
-                  <option value="ongoing">진행중 (Ongoing)</option>
-                  <option value="ended">종료 (Ended)</option>
-                </select>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                    {formData.status === 'ongoing' ? (
+                      <span style={{ color: '#34d399' }}>🟢 진행중 (NOW OPEN)</span>
+                    ) : formData.status === 'ended' ? (
+                      <span style={{ color: '#94a3b8' }}>🏁 종료 ({((formData.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END)</span>
+                    ) : (
+                      <span style={{ color: '#fbbf24' }}>⏳ 오픈 예정 (Coming Soon)</span>
+                    )}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: 'rgba(255, 255, 255, 0.45)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    오픈관리 탭에서 변경
+                  </span>
+                </div>
               </div>
 
               <div>

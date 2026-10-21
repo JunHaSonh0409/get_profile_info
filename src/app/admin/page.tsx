@@ -823,7 +823,10 @@ export default function AdminPage() {
       </div>
 
       {adminTab === 'events' ? (
-        <EventManagementTab onShowToast={showToast} />
+        <EventManagementTab
+          onShowToast={showToast}
+          onSwitchToOpenManage={() => setAdminTab('open_manage')}
+        />
       ) : adminTab === 'open_manage' ? (
         <EventOpenManagementTab onShowToast={showToast} />
       ) : (

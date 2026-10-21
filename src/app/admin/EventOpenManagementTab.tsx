@@ -189,10 +189,10 @@ export default function EventOpenManagementTab({ onShowToast }: Props) {
       >
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🚀</span> 이벤트 오픈 및 신청 인원 관리
+            <span>🚀</span> 이벤트 오픈 및 관리 (Open / End 결정 및 신청자 관리)
           </h2>
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-            이벤트를 공식 오픈하여 카드를 <strong style={{ color: '#34d399' }}>NOW OPEN</strong> 상태로 전환하고, 실시간 신청자 명단을 관리합니다.
+            이벤트의 공식 오픈(<strong style={{ color: '#34d399' }}>NOW OPEN</strong>) 및 마감/종료(<strong style={{ color: '#cbd5e1' }}>VOL.1 END</strong>) 상태를 결정하고, 실시간 신청자 명단을 관리합니다.
           </p>
         </div>
 

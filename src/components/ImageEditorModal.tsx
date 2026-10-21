@@ -67,67 +67,126 @@ export default function ImageEditorModal({
   // Undo history for blur strokes
   const historyRef = useRef<ImageData[]>([]);
 
+  // Adjust crop rect based on selected aspect ratio
+  const applyAspectRatio = useCallback((ratio: AspectRatio, cWidth?: number, cHeight?: number) => {
+    const canvas = canvasRef.current;
+    const w = cWidth || (canvas ? canvas.width : 300);
+    const h = cHeight || (canvas ? canvas.height : 400);
+
+    setAspectRatio(ratio);
+
+    if (ratio === 'full') {
+      setCropRect({ x: 0, y: 0, width: w, height: h });
+      return;
+    }
+
+    let targetW = w * 0.9;
+    let targetH = h * 0.9;
+
+    if (ratio === '3:4') {
+      const targetRatio = 3 / 4;
+      if (targetW / targetH > targetRatio) {
+        targetW = targetH * targetRatio;
+      } else {
+        targetH = targetW / targetRatio;
+      }
+    } else if (ratio === '1:1') {
+      const size = Math.min(targetW, targetH);
+      targetW = size;
+      targetH = size;
+    }
+
+    setCropRect({
+      x: Math.round((w - targetW) / 2),
+      y: Math.round((h - targetH) / 2),
+      width: Math.round(targetW),
+      height: Math.round(targetH),
+    });
+  }, []);
+
   // Initialize canvas, base image, and pre-computed blur layers
   const initCanvas = useCallback(() => {
     if (!imageSrc) return;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+    // Do not set crossOrigin on data: or blob: URLs (causes silent loading failures in Chromium/Safari)
+    if (!imageSrc.startsWith('data:') && !imageSrc.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous';
+    }
 
-      const containerWidth = Math.min(window.innerWidth - 32, 440);
-      const containerHeight = Math.min(Math.max(window.innerHeight * 0.28, 160), 220);
+    const setupWithImage = (loadedImg: HTMLImageElement) => {
+      const setup = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          // Wait for DOM portal attachment if not ready yet
+          requestAnimationFrame(setup);
+          return;
+        }
 
-      let scale = Math.min(containerWidth / img.width, containerHeight / img.height);
-      if (scale > 1) scale = 1; // Don't upscale
+        const containerWidth = Math.min(window.innerWidth - 32, 440);
+        const containerHeight = Math.min(Math.max(window.innerHeight * 0.35, 180), 260);
 
-      const canvasWidth = Math.round(img.width * scale);
-      const canvasHeight = Math.round(img.height * scale);
+        let scale = Math.min(containerWidth / loadedImg.width, containerHeight / loadedImg.height);
+        if (scale > 1) scale = 1; // Don't upscale
 
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
+        const canvasWidth = Math.round(loadedImg.width * scale);
+        const canvasHeight = Math.round(loadedImg.height * scale);
 
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-        ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-        // Save initial state for undo
-        historyRef.current = [ctx.getImageData(0, 0, canvasWidth, canvasHeight)];
-        setCanUndo(false);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+          ctx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+          // Save initial state for undo
+          historyRef.current = [ctx.getImageData(0, 0, canvasWidth, canvasHeight)];
+          setCanUndo(false);
+        }
+
+        // 1. Generate Weak Blur layer (~2.2px blur: ultra soft & subtle, face 100% visible)
+        const weakCanvas = document.createElement('canvas');
+        weakCanvas.width = canvasWidth;
+        weakCanvas.height = canvasHeight;
+        const wCtx = weakCanvas.getContext('2d');
+        if (wCtx) {
+          wCtx.filter = 'blur(2.2px)';
+          wCtx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+        }
+        weakBlurCanvasRef.current = weakCanvas;
+
+        // 2. Generate Strong Blur layer (8px blur: gentle obscure)
+        const strongCanvas = document.createElement('canvas');
+        strongCanvas.width = canvasWidth;
+        strongCanvas.height = canvasHeight;
+        const sCtx = strongCanvas.getContext('2d');
+        if (sCtx) {
+          sCtx.filter = 'blur(8px)';
+          sCtx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+        }
+        strongBlurCanvasRef.current = strongCanvas;
+
+        // Initialize default 3:4 crop rect
+        applyAspectRatio('3:4', canvasWidth, canvasHeight);
+      };
+
+      setup();
+    };
+
+    img.onload = () => setupWithImage(img);
+    img.onerror = (e) => {
+      console.warn('Failed to load image, attempting fallback without crossOrigin:', e);
+      if (img.crossOrigin) {
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => setupWithImage(fallbackImg);
+        fallbackImg.src = imageSrc;
       }
-
-      // 1. Generate Weak Blur layer (~2.2px blur: ultra soft & subtle, face 100% visible)
-      const weakCanvas = document.createElement('canvas');
-      weakCanvas.width = canvasWidth;
-      weakCanvas.height = canvasHeight;
-      const wCtx = weakCanvas.getContext('2d');
-      if (wCtx) {
-        wCtx.filter = 'blur(2.2px)';
-        wCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-      }
-      weakBlurCanvasRef.current = weakCanvas;
-
-      // 2. Generate Strong Blur layer (8px blur: gentle obscure)
-      const strongCanvas = document.createElement('canvas');
-      strongCanvas.width = canvasWidth;
-      strongCanvas.height = canvasHeight;
-      const sCtx = strongCanvas.getContext('2d');
-      if (sCtx) {
-        sCtx.filter = 'blur(8px)';
-        sCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-      }
-      strongBlurCanvasRef.current = strongCanvas;
-
-      // Initialize default 3:4 crop rect
-      applyAspectRatio('3:4', canvasWidth, canvasHeight);
     };
     img.src = imageSrc;
-  }, [imageSrc]);
+  }, [imageSrc, applyAspectRatio]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && mounted) {
       document.body.style.overflow = 'hidden';
       initCanvas();
       setMode('blur');
@@ -137,7 +196,7 @@ export default function ImageEditorModal({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, initCanvas]);
+  }, [isOpen, mounted, initCanvas]);
 
   // Global drag release listener to ensure dragging stops even when mouseup occurs outside canvas
   useEffect(() => {
@@ -172,43 +231,6 @@ export default function ImageEditorModal({
       window.removeEventListener('pointermove', handleGlobalMove);
     };
   }, [isOpen]);
-
-  // Adjust crop rect based on selected aspect ratio
-  const applyAspectRatio = (ratio: AspectRatio, cWidth?: number, cHeight?: number) => {
-    const canvas = canvasRef.current;
-    const w = cWidth || (canvas ? canvas.width : 300);
-    const h = cHeight || (canvas ? canvas.height : 400);
-
-    setAspectRatio(ratio);
-
-    if (ratio === 'full') {
-      setCropRect({ x: 0, y: 0, width: w, height: h });
-      return;
-    }
-
-    let targetW = w * 0.9;
-    let targetH = h * 0.9;
-
-    if (ratio === '3:4') {
-      const targetRatio = 3 / 4;
-      if (targetW / targetH > targetRatio) {
-        targetW = targetH * targetRatio;
-      } else {
-        targetH = targetW / targetRatio;
-      }
-    } else if (ratio === '1:1') {
-      const size = Math.min(targetW, targetH);
-      targetW = size;
-      targetH = size;
-    }
-
-    setCropRect({
-      x: Math.round((w - targetW) / 2),
-      y: Math.round((h - targetH) / 2),
-      width: Math.round(targetW),
-      height: Math.round(targetH),
-    });
-  };
 
   // Smooth Feathered Blur Brush Applicator
   const applyBlurAt = (cx: number, cy: number) => {
@@ -317,9 +339,11 @@ export default function ImageEditorModal({
     const rect = canvas.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
     };
   };
 
@@ -973,25 +997,51 @@ export default function ImageEditorModal({
         <div
           ref={containerRef}
           style={{
-            flex: 1,
+            flex: '1 1 auto',
+            minHeight: 0,
             position: 'relative',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '16px',
+            padding: '12px 14px',
             background: 'radial-gradient(circle at center, rgba(30, 34, 48, 0.8) 0%, rgba(10, 12, 18, 0.95) 100%)',
             overflow: 'hidden',
             touchAction: 'none',
             userSelect: 'none',
           }}
         >
+          {/* Guide hint above canvas in blur mode */}
+          {mode === 'blur' && (
+            <div
+              style={{
+                fontSize: '11.5px',
+                color: '#fca5a5',
+                marginBottom: '8px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(239, 68, 68, 0.16)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                flexShrink: 0,
+              }}
+            >
+              <span>👆</span> 얼굴/이목구비 부위를 마우스나 손가락으로 쓱 문질러 가려주세요
+            </div>
+          )}
+
           <div
             style={{
               position: 'relative',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
               borderRadius: '8px',
               overflow: 'hidden',
               cursor: mode === 'blur' ? 'crosshair' : 'default',
+              display: 'inline-block',
+              lineHeight: 0,
             }}
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
@@ -1005,23 +1055,7 @@ export default function ImageEditorModal({
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}
           >
-            {/* Guide hint above canvas in blur mode */}
-            {mode === 'blur' && (
-              <div
-                style={{
-                  fontSize: '11.5px',
-                  color: '#fca5a5',
-                  marginBottom: '8px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <span>👆</span> 얼굴/이목구비 부위를 마우스나 손가락으로 쓱 문질러 가려주세요
-              </div>
-            )}
-            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(28vh, 220px)' }} />
+            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(36vh, 260px)' }} />
 
             {/* Crop Overlay (Only visible in Crop Mode) */}
             {mode === 'crop' && (

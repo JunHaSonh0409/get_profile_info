@@ -270,35 +270,46 @@ export default function EventsSection({ onGoToProfile }: Props) {
                 width: '100%',
               }}
             >
-              {/* Prominent '?' Icon */}
+              {/* 3D Liquid Crystal Question Mark Asset (User Reference Design) */}
               <div
                 style={{
-                  width: '84px',
-                  height: '84px',
-                  borderRadius: '50%',
-                  background: 'radial-gradient(circle at 35% 30%, #38bdf8 0%, #0369a1 70%, #0c4a6e 100%)',
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: '2px solid rgba(255, 255, 255, 0.65)',
-                  boxShadow:
-                    '0 10px 25px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.5)',
-                  marginBottom: '16px',
-                  animation: 'pulseGlow 2.5s infinite alternate ease-in-out',
+                  marginBottom: '14px',
+                  animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
                 }}
               >
-                <span
+                {/* Backing Ambient Cyan Glow */}
+                <div
                   style={{
-                    fontSize: '52px',
-                    fontWeight: 900,
-                    color: '#ffffff',
-                    fontFamily: '"Outfit", sans-serif',
-                    lineHeight: 1,
-                    textShadow: '0 2px 10px rgba(0, 0, 0, 0.6)',
+                    position: 'absolute',
+                    width: '100px',
+                    height: '100px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(14, 165, 233, 0) 70%)',
+                    filter: 'blur(16px)',
+                    zIndex: 0,
+                    pointerEvents: 'none',
                   }}
-                >
-                  ?
-                </span>
+                />
+
+                <img
+                  src="/images/crystal_question_mark.png"
+                  alt="Coming Soon Event"
+                  style={{
+                    position: 'relative',
+                    width: '92px',
+                    height: 'auto',
+                    maxHeight: '140px',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.65))',
+                    zIndex: 1,
+                    userSelect: 'none',
+                    pointerEvents: 'none',
+                  }}
+                />
               </div>
 
               {/* Exact 'comming soon' Typography as requested */}
@@ -552,6 +563,14 @@ export default function EventsSection({ onGoToProfile }: Props) {
           100% {
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 38px rgba(56, 189, 248, 0.95);
             transform: scale(1.02);
+          }
+        }
+        @keyframes floatCrystalQuestion {
+          0% {
+            transform: translateY(0px) scale(0.98);
+          }
+          100% {
+            transform: translateY(-5px) scale(1.02);
           }
         }
       `}</style>

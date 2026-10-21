@@ -71,8 +71,8 @@ export default function ImageEditorModal({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const containerWidth = Math.min(window.innerWidth - 32, 540);
-      const containerHeight = Math.min(window.innerHeight - 340, 520);
+      const containerWidth = Math.min(window.innerWidth - 40, 480);
+      const containerHeight = Math.min(window.innerHeight * 0.42, 340);
 
       let scale = Math.min(containerWidth / img.width, containerHeight / img.height);
       if (scale > 1) scale = 1; // Don't upscale
@@ -538,9 +538,9 @@ export default function ImageEditorModal({
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px 12px 30px',
+        padding: '20px 16px',
         overflowY: 'auto',
         animation: 'fadeIn 0.2s ease-out',
       }}
@@ -551,13 +551,13 @@ export default function ImageEditorModal({
       <div
         style={{
           width: '100%',
-          maxWidth: '560px',
-          marginTop: '6px',
-          maxHeight: 'calc(100vh - 36px)',
+          maxWidth: '520px',
+          margin: 'auto',
+          maxHeight: 'min(90vh, 680px)',
           background: 'rgba(18, 20, 29, 0.96)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 67, 112, 0.15)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 67, 112, 0.15)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -889,7 +889,7 @@ export default function ImageEditorModal({
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}
           >
-            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: '55vh' }} />
+            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(42vh, 340px)' }} />
 
             {/* Crop Overlay (Only visible in Crop Mode) */}
             {mode === 'crop' && (

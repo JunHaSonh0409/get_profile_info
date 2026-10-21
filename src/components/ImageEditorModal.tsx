@@ -67,11 +67,11 @@ export default function ImageEditorModal({
   // Undo history for blur strokes
   const historyRef = useRef<ImageData[]>([]);
 
-  // Adjust crop rect based on selected aspect ratio
+  // Adjust crop rect based on selected aspect ratio (at full image resolution)
   const applyAspectRatio = useCallback((ratio: AspectRatio, cWidth?: number, cHeight?: number) => {
     const canvas = canvasRef.current;
-    const w = cWidth || (canvas ? canvas.width : 300);
-    const h = cHeight || (canvas ? canvas.height : 400);
+    const w = cWidth || (canvas ? canvas.width : 1200);
+    const h = cHeight || (canvas ? canvas.height : 1600);
 
     setAspectRatio(ratio);
 
@@ -80,8 +80,8 @@ export default function ImageEditorModal({
       return;
     }
 
-    let targetW = w * 0.9;
-    let targetH = h * 0.9;
+    let targetW = w;
+    let targetH = h;
 
     if (ratio === '3:4') {
       const targetRatio = 3 / 4;
@@ -104,7 +104,7 @@ export default function ImageEditorModal({
     });
   }, []);
 
-  // Initialize canvas, base image, and pre-computed blur layers
+  // Initialize canvas with full original image resolution
   const initCanvas = useCallback(() => {
     if (!imageSrc) return;
 
@@ -123,51 +123,64 @@ export default function ImageEditorModal({
           return;
         }
 
-        const containerWidth = Math.min(window.innerWidth - 32, 440);
-        const containerHeight = Math.min(Math.max(window.innerHeight * 0.35, 180), 260);
+        // Keep full original dimensions (cap at 2560px for mobile canvas memory safety)
+        const origW = loadedImg.naturalWidth || loadedImg.width;
+        const origH = loadedImg.naturalHeight || loadedImg.height;
 
-        let scale = Math.min(containerWidth / loadedImg.width, containerHeight / loadedImg.height);
-        if (scale > 1) scale = 1; // Don't upscale
+        const MAX_CANVAS_DIM = 2560;
+        let targetW = origW;
+        let targetH = origH;
+        if (targetW > MAX_CANVAS_DIM || targetH > MAX_CANVAS_DIM) {
+          if (targetW >= targetH) {
+            targetH = Math.round((targetH * MAX_CANVAS_DIM) / targetW);
+            targetW = MAX_CANVAS_DIM;
+          } else {
+            targetW = Math.round((targetW * MAX_CANVAS_DIM) / targetH);
+            targetH = MAX_CANVAS_DIM;
+          }
+        }
 
-        const canvasWidth = Math.round(loadedImg.width * scale);
-        const canvasHeight = Math.round(loadedImg.height * scale);
-
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+        canvas.width = targetW;
+        canvas.height = targetH;
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-          ctx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+          ctx.clearRect(0, 0, targetW, targetH);
+          ctx.drawImage(loadedImg, 0, 0, targetW, targetH);
           // Save initial state for undo
-          historyRef.current = [ctx.getImageData(0, 0, canvasWidth, canvasHeight)];
+          historyRef.current = [ctx.getImageData(0, 0, targetW, targetH)];
           setCanUndo(false);
         }
 
-        // 1. Generate Weak Blur layer (~2.2px blur: ultra soft & subtle, face 100% visible)
+        // Scale blur radius proportionally with resolution
+        const blurScale = Math.max(1, targetW / 400);
+        const weakBlurPx = (2.2 * blurScale).toFixed(1);
+        const strongBlurPx = (8.0 * blurScale).toFixed(1);
+
+        // 1. Generate Weak Blur layer
         const weakCanvas = document.createElement('canvas');
-        weakCanvas.width = canvasWidth;
-        weakCanvas.height = canvasHeight;
+        weakCanvas.width = targetW;
+        weakCanvas.height = targetH;
         const wCtx = weakCanvas.getContext('2d');
         if (wCtx) {
-          wCtx.filter = 'blur(2.2px)';
-          wCtx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+          wCtx.filter = `blur(${weakBlurPx}px)`;
+          wCtx.drawImage(loadedImg, 0, 0, targetW, targetH);
         }
         weakBlurCanvasRef.current = weakCanvas;
 
-        // 2. Generate Strong Blur layer (8px blur: gentle obscure)
+        // 2. Generate Strong Blur layer
         const strongCanvas = document.createElement('canvas');
-        strongCanvas.width = canvasWidth;
-        strongCanvas.height = canvasHeight;
+        strongCanvas.width = targetW;
+        strongCanvas.height = targetH;
         const sCtx = strongCanvas.getContext('2d');
         if (sCtx) {
-          sCtx.filter = 'blur(8px)';
-          sCtx.drawImage(loadedImg, 0, 0, canvasWidth, canvasHeight);
+          sCtx.filter = `blur(${strongBlurPx}px)`;
+          sCtx.drawImage(loadedImg, 0, 0, targetW, targetH);
         }
         strongBlurCanvasRef.current = strongCanvas;
 
-        // Initialize default 3:4 crop rect
-        applyAspectRatio('3:4', canvasWidth, canvasHeight);
+        // Initialize default 3:4 crop rect with full resolution coordinates
+        applyAspectRatio('3:4', targetW, targetH);
       };
 
       setup();
@@ -187,15 +200,12 @@ export default function ImageEditorModal({
 
   useEffect(() => {
     if (isOpen && mounted) {
-      document.body.style.overflow = 'hidden';
+      window.scrollTo({ top: 0, behavior: 'instant' });
       initCanvas();
       setMode('blur');
       setAspectRatio('3:4');
       setBlurIntensity('weak');
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen, mounted, initCanvas]);
 
   // Global drag release listener to ensure dragging stops even when mouseup occurs outside canvas
@@ -232,7 +242,7 @@ export default function ImageEditorModal({
     };
   }, [isOpen]);
 
-  // Smooth Feathered Blur Brush Applicator
+  // Smooth Feathered Blur Brush Applicator (scaled to canvas resolution)
   const applyBlurAt = (cx: number, cy: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -248,7 +258,9 @@ export default function ImageEditorModal({
       medium: 42,
       large: 70,
     };
-    const radius = radiusMap[brushSize];
+    const rect = canvas.getBoundingClientRect();
+    const resolutionScale = rect.width > 0 ? canvas.width / rect.width : 1;
+    const radius = Math.round(radiusMap[brushSize] * resolutionScale);
     const diameter = radius * 2;
 
     // Offscreen stamp for feathered radial falloff
@@ -362,7 +374,11 @@ export default function ImageEditorModal({
     }
 
     // In Crop Mode: check handles or crop box
-    const handleHitRadius = 24;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const resolutionScale = rect.width > 0 ? canvas.width / rect.width : 1;
+    const handleHitRadius = 32 * resolutionScale;
     const { x: rx, y: ry, width: rw, height: rh } = cropRect;
 
     // Corner handle detection
@@ -401,7 +417,7 @@ export default function ImageEditorModal({
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!dragActionRef.current) return;
 
-    // CRITICAL FIX: If mouse button is not currently pressed down, cancel drag immediately
+    // If mouse button is not currently pressed down, cancel drag immediately
     if ('buttons' in e && e.buttons === 0) {
       dragActionRef.current = null;
       return;
@@ -425,13 +441,14 @@ export default function ImageEditorModal({
       const newY = Math.max(0, Math.min(canvas.height - initialRect.height, initialRect.y + dy));
       setCropRect((prev) => ({ ...prev, x: Math.round(newX), y: Math.round(newY) }));
     } else if (dragActionRef.current.type === 'resize') {
+      const rect = canvas.getBoundingClientRect();
+      const resolutionScale = rect.width > 0 ? canvas.width / rect.width : 1;
+      const minSize = Math.max(50, 40 * resolutionScale);
       const handle = dragActionRef.current.handle;
       let newX = initialRect.x;
       let newY = initialRect.y;
       let newW = initialRect.width;
       let newH = initialRect.height;
-
-      const minSize = 40;
 
       if (handle === 'br') {
         newW = Math.max(minSize, initialRect.width + dx);
@@ -514,28 +531,13 @@ export default function ImageEditorModal({
     setIsProcessing(true);
 
     try {
-      // Create output canvas for cropped region
+      // Create output canvas for cropped region at FULL original resolution
       const outCanvas = document.createElement('canvas');
-      const cropW = Math.max(10, cropRect.width);
-      const cropH = Math.max(10, cropRect.height);
+      const cropW = Math.max(10, Math.round(cropRect.width));
+      const cropH = Math.max(10, Math.round(cropRect.height));
 
-      // Max dimensions: 720 x 960 (standard mobile portrait)
-      const MAX_OUT_WIDTH = 720;
-      const MAX_OUT_HEIGHT = 960;
-      let finalW = cropW;
-      let finalH = cropH;
-
-      if (finalW > MAX_OUT_WIDTH) {
-        finalH = Math.round((finalH * MAX_OUT_WIDTH) / finalW);
-        finalW = MAX_OUT_WIDTH;
-      }
-      if (finalH > MAX_OUT_HEIGHT) {
-        finalW = Math.round((finalW * MAX_OUT_HEIGHT) / finalH);
-        finalH = MAX_OUT_HEIGHT;
-      }
-
-      outCanvas.width = finalW;
-      outCanvas.height = finalH;
+      outCanvas.width = cropW;
+      outCanvas.height = cropH;
 
       const outCtx = outCanvas.getContext('2d');
       if (!outCtx) throw new Error('출력 캔버스 생성 실패');
@@ -546,25 +548,25 @@ export default function ImageEditorModal({
       // Draw cropped area from source canvas
       outCtx.drawImage(
         canvas,
-        cropRect.x,
-        cropRect.y,
-        cropRect.width,
-        cropRect.height,
+        Math.round(cropRect.x),
+        Math.round(cropRect.y),
+        cropW,
+        cropH,
         0,
         0,
-        finalW,
-        finalH
+        cropW,
+        cropH
       );
 
-      // Export as WebP quality 0.72 (~30-50KB)
+      // Export as high quality WebP / JPEG (0.90) maintaining crisp original resolution
       let exportedUrl = '';
       try {
-        exportedUrl = outCanvas.toDataURL('image/webp', 0.72);
+        exportedUrl = outCanvas.toDataURL('image/webp', 0.90);
         if (!exportedUrl || !exportedUrl.startsWith('data:image/webp')) {
-          exportedUrl = outCanvas.toDataURL('image/jpeg', 0.70);
+          exportedUrl = outCanvas.toDataURL('image/jpeg', 0.90);
         }
       } catch {
-        exportedUrl = outCanvas.toDataURL('image/jpeg', 0.70);
+        exportedUrl = outCanvas.toDataURL('image/jpeg', 0.90);
       }
 
       onComplete(exportedUrl);
@@ -581,23 +583,21 @@ export default function ImageEditorModal({
   const modalContent = (
     <div
       style={{
-        position: 'fixed',
+        position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
+        width: '100%',
+        minHeight: '100vh',
         zIndex: 999999,
-        background: 'rgba(0, 0, 0, 0.88)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        background: 'rgba(6, 8, 14, 0.94)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px 12px',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
+        justifyContent: 'flex-start',
+        padding: '24px 12px 80px',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
@@ -606,28 +606,32 @@ export default function ImageEditorModal({
       <div
         style={{
           width: '100%',
-          maxWidth: '480px',
-          maxHeight: 'min(94vh, 600px)',
-          margin: 'auto',
+          maxWidth: '520px',
           background: 'rgba(18, 20, 29, 0.98)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '20px',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 67, 112, 0.2)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          overflow: 'visible',
           animation: 'fadeIn 0.2s ease-out',
         }}
       >
         {/* Header (Sticky top) */}
         <div
           style={{
-            padding: '12px 18px',
+            padding: '14px 18px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 30,
+            background: 'rgba(18, 20, 29, 0.98)',
+            backdropFilter: 'blur(10px)',
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
           }}
         >
           <div>
@@ -676,15 +680,11 @@ export default function ImageEditorModal({
           </button>
         </div>
 
-        {/* Scrollable Center Body: Mandatory Alert + Toolbar + Canvas Area */}
+        {/* Center Body: Mandatory Alert + Toolbar + Canvas Area */}
         <div
           style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            WebkitOverflowScrolling: 'touch',
           }}
         >
           {/* 🚨 Mandatory Mosaic Warning Alert Banner */}
@@ -1042,6 +1042,8 @@ export default function ImageEditorModal({
               cursor: mode === 'blur' ? 'crosshair' : 'default',
               display: 'inline-block',
               lineHeight: 0,
+              width: '100%',
+              maxWidth: '480px',
             }}
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
@@ -1055,10 +1057,17 @@ export default function ImageEditorModal({
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}
           >
-            <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 'min(36vh, 260px)' }} />
+            <canvas
+              ref={canvasRef}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: 'auto',
+              }}
+            />
 
             {/* Crop Overlay (Only visible in Crop Mode) */}
-            {mode === 'crop' && (
+            {mode === 'crop' && canvasRef.current && (
               <div
                 style={{
                   position: 'absolute',
@@ -1066,168 +1075,181 @@ export default function ImageEditorModal({
                   pointerEvents: 'none',
                 }}
               >
-                {/* Darkened mask outside crop box */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: `${cropRect.y}px`,
-                    background: 'rgba(0, 0, 0, 0.55)',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: `${cropRect.y + cropRect.height}px`,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0, 0, 0, 0.55)',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: `${cropRect.y}px`,
-                    left: 0,
-                    width: `${cropRect.x}px`,
-                    height: `${cropRect.height}px`,
-                    background: 'rgba(0, 0, 0, 0.55)',
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: `${cropRect.y}px`,
-                    left: `${cropRect.x + cropRect.width}px`,
-                    right: 0,
-                    height: `${cropRect.height}px`,
-                    background: 'rgba(0, 0, 0, 0.55)',
-                  }}
-                />
+                {(() => {
+                  const cw = canvasRef.current.width || 1;
+                  const ch = canvasRef.current.height || 1;
+                  const pX = (cropRect.x / cw) * 100;
+                  const pY = (cropRect.y / ch) * 100;
+                  const pW = (cropRect.width / cw) * 100;
+                  const pH = (cropRect.height / ch) * 100;
 
-                {/* The Crop Box Frame */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: `${cropRect.x}px`,
-                    top: `${cropRect.y}px`,
-                    width: `${cropRect.width}px`,
-                    height: `${cropRect.height}px`,
-                    border: '2px solid #ff4370',
-                    boxShadow: '0 0 12px rgba(255, 67, 112, 0.5)',
-                    pointerEvents: 'auto',
-                    cursor: 'move',
-                  }}
-                >
-                  {/* Rule of thirds grid lines */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '33.3%',
-                      top: 0,
-                      bottom: 0,
-                      width: '1px',
-                      background: 'rgba(255, 255, 255, 0.25)',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '66.6%',
-                      top: 0,
-                      bottom: 0,
-                      width: '1px',
-                      background: 'rgba(255, 255, 255, 0.25)',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '33.3%',
-                      left: 0,
-                      right: 0,
-                      height: '1px',
-                      background: 'rgba(255, 255, 255, 0.25)',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '66.6%',
-                      left: 0,
-                      right: 0,
-                      height: '1px',
-                      background: 'rgba(255, 255, 255, 0.25)',
-                    }}
-                  />
+                  return (
+                    <>
+                      {/* Darkened mask outside crop box */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: `${pY}%`,
+                          background: 'rgba(0, 0, 0, 0.55)',
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: `${pY + pH}%`,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: 'rgba(0, 0, 0, 0.55)',
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: `${pY}%`,
+                          left: 0,
+                          width: `${pX}%`,
+                          height: `${pH}%`,
+                          background: 'rgba(0, 0, 0, 0.55)',
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: `${pY}%`,
+                          left: `${pX + pW}%`,
+                          right: 0,
+                          height: `${pH}%`,
+                          background: 'rgba(0, 0, 0, 0.55)',
+                        }}
+                      />
 
-                  {/* Corner Handles */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '-6px',
-                      left: '-6px',
-                      width: '14px',
-                      height: '14px',
-                      background: '#fff',
-                      border: '2px solid #ff4370',
-                      borderRadius: '3px',
-                      cursor: 'nwse-resize',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '-6px',
-                      right: '-6px',
-                      width: '14px',
-                      height: '14px',
-                      background: '#fff',
-                      border: '2px solid #ff4370',
-                      borderRadius: '3px',
-                      cursor: 'nesw-resize',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '-6px',
-                      left: '-6px',
-                      width: '14px',
-                      height: '14px',
-                      background: '#fff',
-                      border: '2px solid #ff4370',
-                      borderRadius: '3px',
-                      cursor: 'nesw-resize',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '-6px',
-                      right: '-6px',
-                      width: '14px',
-                      height: '14px',
-                      background: '#fff',
-                      border: '2px solid #ff4370',
-                      borderRadius: '3px',
-                      cursor: 'nwse-resize',
-                    }}
-                  />
-                </div>
+                      {/* The Crop Box Frame */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${pX}%`,
+                          top: `${pY}%`,
+                          width: `${pW}%`,
+                          height: `${pH}%`,
+                          border: '2px solid #ff4370',
+                          boxShadow: '0 0 12px rgba(255, 67, 112, 0.5)',
+                          pointerEvents: 'auto',
+                          cursor: 'move',
+                        }}
+                      >
+                        {/* Rule of thirds grid lines */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '33.3%',
+                            top: 0,
+                            bottom: 0,
+                            width: '1px',
+                            background: 'rgba(255, 255, 255, 0.25)',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '66.6%',
+                            top: 0,
+                            bottom: 0,
+                            width: '1px',
+                            background: 'rgba(255, 255, 255, 0.25)',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '33.3%',
+                            left: 0,
+                            right: 0,
+                            height: '1px',
+                            background: 'rgba(255, 255, 255, 0.25)',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '66.6%',
+                            left: 0,
+                            right: 0,
+                            height: '1px',
+                            background: 'rgba(255, 255, 255, 0.25)',
+                          }}
+                        />
+
+                        {/* Corner Handles */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            left: '-6px',
+                            width: '14px',
+                            height: '14px',
+                            background: '#fff',
+                            border: '2px solid #ff4370',
+                            borderRadius: '3px',
+                            cursor: 'nwse-resize',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '14px',
+                            height: '14px',
+                            background: '#fff',
+                            border: '2px solid #ff4370',
+                            borderRadius: '3px',
+                            cursor: 'nesw-resize',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            left: '-6px',
+                            width: '14px',
+                            height: '14px',
+                            background: '#fff',
+                            border: '2px solid #ff4370',
+                            borderRadius: '3px',
+                            cursor: 'nesw-resize',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            right: '-6px',
+                            width: '14px',
+                            height: '14px',
+                            background: '#fff',
+                            border: '2px solid #ff4370',
+                            borderRadius: '3px',
+                            cursor: 'nwse-resize',
+                          }}
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Footer Actions (Always Sticky & Fully Visible) */}
+      {/* Footer Actions (Sticky Bottom) */}
       <div
         style={{
-          padding: '12px 16px',
+          padding: '14px 18px',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           alignItems: 'center',
@@ -1235,10 +1257,11 @@ export default function ImageEditorModal({
           gap: '8px',
           background: 'rgba(15, 17, 24, 0.98)',
           backdropFilter: 'blur(10px)',
-          flexShrink: 0,
           position: 'sticky',
           bottom: 0,
-          zIndex: 10,
+          zIndex: 30,
+          borderBottomLeftRadius: '20px',
+          borderBottomRightRadius: '20px',
         }}
       >
         <button

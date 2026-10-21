@@ -27,7 +27,7 @@ export default function AdminLayout({
         background: '#090d16',
         color: '#f1f5f9',
         fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Pretendard Variable", Pretendard, sans-serif',
+          '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
       {children}

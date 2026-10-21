@@ -59,6 +59,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
   }, []);
 
   const currentEvent = events[selectedIndex] || events[0] || defaultEvents[0];
+  const isEventOpen = currentEvent.status === 'ongoing';
 
   const handleCardClick = () => {
     router.push(`/events/${currentEvent.slug}`);
@@ -84,21 +85,21 @@ export default function EventsSection({ onGoToProfile }: Props) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(14, 165, 233, 0.15)',
-            border: '1px solid rgba(14, 165, 233, 0.35)',
+            background: isEventOpen ? 'rgba(16, 185, 129, 0.15)' : 'rgba(14, 165, 233, 0.15)',
+            border: isEventOpen ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(14, 165, 233, 0.35)',
             padding: '4px 12px',
             borderRadius: '999px',
-            color: '#38bdf8',
+            color: isEventOpen ? '#34d399' : '#38bdf8',
             fontSize: '12px',
             fontWeight: 700,
             letterSpacing: '0.5px',
             marginBottom: '12px',
           }}
         >
-          <span>🎟️</span> {currentEvent.badgeText || 'ORBIT EXCLUSIVE EVENT'}
+          <span>{isEventOpen ? '🟢' : '🎟️'}</span> {isEventOpen ? '공식 오픈 · 지금 접수 중' : currentEvent.badgeText || 'ORBIT EXCLUSIVE EVENT'}
         </div>
         <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px', margin: 0 }}>
-          진행중 <span style={{ color: '#38bdf8' }}>이벤트</span>
+          진행중 <span style={{ color: isEventOpen ? '#34d399' : '#38bdf8' }}>이벤트</span>
         </h1>
         <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.5 }}>
           Orbit 회원들을 위한 특별한 오프라인 & 온라인 인연 매칭 라인업
@@ -168,9 +169,15 @@ export default function EventsSection({ onGoToProfile }: Props) {
             height: '400px',
             borderRadius: '22px',
             background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            border: isEventOpen
+              ? '1px solid rgba(52, 211, 153, 0.35)'
+              : '1px solid rgba(255, 255, 255, 0.12)',
             boxShadow: isHovered
-              ? '0 30px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(239, 68, 68, 0.35)'
+              ? isEventOpen
+                ? '0 30px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(16, 185, 129, 0.45)'
+                : '0 30px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(239, 68, 68, 0.35)'
+              : isEventOpen
+              ? '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(16, 185, 129, 0.25)'
               : '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(239, 68, 68, 0.2)',
             transform: isHovered ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
             transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -211,7 +218,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             </>
           )}
 
-          {/* Top Serial & Dots (Asset Style - Red, renders OVER image) */}
+          {/* Top Serial & Dots (Asset Style - renders OVER image) */}
           <div
             style={{
               position: 'relative',
@@ -219,7 +226,9 @@ export default function EventsSection({ onGoToProfile }: Props) {
               justifyContent: 'space-between',
               alignItems: 'center',
               paddingBottom: '8px',
-              borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+              borderBottom: isEventOpen
+                ? '1px solid rgba(52, 211, 153, 0.4)'
+                : '1px solid rgba(239, 68, 68, 0.35)',
               zIndex: 2,
             }}
           >
@@ -227,18 +236,39 @@ export default function EventsSection({ onGoToProfile }: Props) {
               style={{
                 fontSize: '11px',
                 fontWeight: 800,
-                color: '#ef4444',
+                color: isEventOpen ? '#34d399' : '#ef4444',
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase',
                 textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
               }}
             >
-              ORBIT EVENT · {currentEvent.volNumber}
+              ORBIT EVENT · {currentEvent.volNumber} {isEventOpen ? '· OPEN' : ''}
             </span>
             <div style={{ display: 'flex', gap: '3px' }}>
-              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />
-              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.65)' }} />
-              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.35)' }} />
+              <span
+                style={{
+                  width: '4px',
+                  height: '4px',
+                  borderRadius: '50%',
+                  background: isEventOpen ? '#34d399' : '#ef4444',
+                }}
+              />
+              <span
+                style={{
+                  width: '4px',
+                  height: '4px',
+                  borderRadius: '50%',
+                  background: isEventOpen ? 'rgba(52, 211, 153, 0.65)' : 'rgba(239, 68, 68, 0.65)',
+                }}
+              />
+              <span
+                style={{
+                  width: '4px',
+                  height: '4px',
+                  borderRadius: '50%',
+                  background: isEventOpen ? 'rgba(52, 211, 153, 0.35)' : 'rgba(239, 68, 68, 0.35)',
+                }}
+              />
             </div>
           </div>
 
@@ -255,7 +285,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             }}
           >
             {!currentEvent.imageUrl ? (
-              /* 3D Liquid Crystal Question Mark Asset with Ambient Cyan Glow */
+              /* 3D Liquid Crystal Question Mark Asset with Ambient Glow */
               <div
                 style={{
                   position: 'relative',
@@ -265,15 +295,16 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
                 }}
               >
-                {/* Backing Ambient Cyan Glow */}
+                {/* Backing Ambient Glow */}
                 <div
                   style={{
                     position: 'absolute',
                     width: '110px',
                     height: '110px',
                     borderRadius: '50%',
-                    background:
-                      'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
+                    background: isEventOpen
+                      ? 'radial-gradient(circle, rgba(52, 211, 153, 0.55) 0%, rgba(14, 165, 233, 0.2) 50%, transparent 75%)'
+                      : 'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
                     filter: 'blur(16px)',
                     zIndex: 0,
                     pointerEvents: 'none',
@@ -282,15 +313,16 @@ export default function EventsSection({ onGoToProfile }: Props) {
 
                 <img
                   src="/images/crystal_question_mark.png"
-                  alt="Coming Soon Event"
+                  alt={isEventOpen ? 'Now Open Event' : 'Coming Soon Event'}
                   style={{
                     position: 'relative',
                     width: '92px',
                     height: 'auto',
                     maxHeight: '135px',
                     objectFit: 'contain',
-                    filter:
-                      'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.75))',
+                    filter: isEventOpen
+                      ? 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 24px rgba(52, 211, 153, 0.75))'
+                      : 'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.75))',
                     zIndex: 1,
                     userSelect: 'none',
                     pointerEvents: 'none',
@@ -304,60 +336,112 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   alignItems: 'center',
                   gap: '6px',
                   background: 'rgba(0, 0, 0, 0.65)',
-                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  border: isEventOpen ? '1px solid rgba(52, 211, 153, 0.6)' : '1px solid rgba(239, 68, 68, 0.5)',
                   padding: '5px 14px',
                   borderRadius: '999px',
-                  color: '#ef4444',
+                  color: isEventOpen ? '#34d399' : '#ef4444',
                   fontSize: '11px',
                   fontWeight: 700,
                   letterSpacing: '1px',
                   backdropFilter: 'blur(6px)',
                 }}
               >
-                <span>🎟️</span> POSTER PREVIEW
+                <span>{isEventOpen ? '🟢' : '🎟️'}</span> {isEventOpen ? 'NOW OPEN' : 'POSTER PREVIEW'}
               </div>
             )}
           </div>
 
-          {/* Bottom Frosted Capsule Mockup (Exact layout from user screenshot) */}
+          {/* Bottom Frosted Capsule Mockup: Dynamic COMMING SOON -> NOW OPEN */}
           <div
             style={{
               position: 'relative',
-              background: 'rgba(255, 255, 255, 0.10)',
+              background: isEventOpen
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.32) 100%)'
+                : 'rgba(255, 255, 255, 0.10)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              borderTop: '2px solid rgba(255, 255, 255, 0.45)',
+              border: isEventOpen
+                ? '1px solid rgba(52, 211, 153, 0.45)'
+                : '1px solid rgba(255, 255, 255, 0.18)',
+              borderTop: isEventOpen
+                ? '2px solid rgba(110, 231, 183, 0.85)'
+                : '2px solid rgba(255, 255, 255, 0.45)',
               borderRadius: '14px',
               padding: '12px 10px',
               textAlign: 'center',
+              boxShadow: isEventOpen ? '0 8px 24px rgba(16, 185, 129, 0.25)' : 'none',
               zIndex: 3,
             }}
           >
-            <div
-              style={{
-                fontSize: '14px',
-                fontWeight: 900,
-                color: '#ef4444',
-                letterSpacing: '3.5px',
-                textTransform: 'uppercase',
-                fontFamily: '"Outfit", sans-serif',
-                textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 16px rgba(239, 68, 68, 0.75)',
-              }}
-            >
-              COMMING SOON
-            </div>
-            <div
-              style={{
-                fontSize: '11.5px',
-                color: '#f87171',
-                marginTop: '5px',
-                fontWeight: 600,
-                textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
-              }}
-            >
-              {currentEvent.title || '가을밤 별빛 블라인드 데이트'}
-            </div>
+            {isEventOpen ? (
+              <>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontSize: '15px',
+                    fontWeight: 900,
+                    color: '#34d399',
+                    letterSpacing: '3px',
+                    textTransform: 'uppercase',
+                    fontFamily: '"Outfit", sans-serif',
+                    textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 16px rgba(52, 211, 153, 0.8)',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 10px #10b981, 0 0 18px #34d399',
+                    }}
+                  />
+                  NOW OPEN
+                </div>
+                <div
+                  style={{
+                    fontSize: '11.5px',
+                    color: '#a7f3d0',
+                    marginTop: '5px',
+                    fontWeight: 700,
+                    textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
+                  }}
+                >
+                  {currentEvent.title || '지금 바로 참가 신청 가능'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 900,
+                    color: '#ef4444',
+                    letterSpacing: '3.5px',
+                    textTransform: 'uppercase',
+                    fontFamily: '"Outfit", sans-serif',
+                    textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 16px rgba(239, 68, 68, 0.75)',
+                  }}
+                >
+                  COMMING SOON
+                </div>
+                <div
+                  style={{
+                    fontSize: '11.5px',
+                    color: '#f87171',
+                    marginTop: '5px',
+                    fontWeight: 600,
+                    textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
+                  }}
+                >
+                  {currentEvent.title || '가을밤 별빛 블라인드 데이트'}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -378,9 +462,13 @@ export default function EventsSection({ onGoToProfile }: Props) {
           href={`/events/${currentEvent.slug}`}
           style={{
             width: '100%',
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            color: '#ef4444',
+            background: isEventOpen
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.4) 100%)'
+              : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%)',
+            border: isEventOpen
+              ? '1px solid rgba(52, 211, 153, 0.55)'
+              : '1px solid rgba(239, 68, 68, 0.4)',
+            color: isEventOpen ? '#34d399' : '#ef4444',
             padding: '12px 20px',
             borderRadius: '14px',
             fontSize: '13.5px',
@@ -391,11 +479,16 @@ export default function EventsSection({ onGoToProfile }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            boxShadow: '0 4px 16px rgba(239, 68, 68, 0.2)',
+            boxShadow: isEventOpen
+              ? '0 4px 18px rgba(16, 185, 129, 0.3)'
+              : '0 4px 16px rgba(239, 68, 68, 0.2)',
             transition: 'all 0.2s',
           }}
         >
-          <span>🎟️</span> {currentEvent.volNumber} 이벤트 전용 페이지로 이동하기 →
+          <span>{isEventOpen ? '🚀' : '🎟️'}</span>{' '}
+          {isEventOpen
+            ? `${currentEvent.volNumber} 이벤트 참가 신청하기 (OPEN) →`
+            : `${currentEvent.volNumber} 이벤트 전용 페이지로 이동하기 →`}
         </Link>
 
         <div

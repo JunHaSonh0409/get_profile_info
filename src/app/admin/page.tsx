@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import EventManagementTab from './EventManagementTab';
+import EventOpenManagementTab from './EventOpenManagementTab';
 
 interface ProfileRecord {
   id: string;
@@ -48,7 +49,7 @@ export default function AdminPage() {
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
   // Dashboard state
-  const [adminTab, setAdminTab] = useState<'profiles' | 'events'>('profiles');
+  const [adminTab, setAdminTab] = useState<'profiles' | 'events' | 'open_manage'>('profiles');
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -790,10 +791,37 @@ export default function AdminPage() {
         >
           <span>🎟️</span> 이벤트 카드 관리
         </button>
+
+        <button
+          type="button"
+          onClick={() => setAdminTab('open_manage')}
+          style={{
+            background:
+              adminTab === 'open_manage'
+                ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                : 'rgba(255, 255, 255, 0.05)',
+            color: adminTab === 'open_manage' ? '#fff' : '#94a3b8',
+            border: adminTab === 'open_manage' ? '1px solid #34d399' : '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '11px 22px',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: adminTab === 'open_manage' ? '0 4px 16px rgba(16, 185, 129, 0.35)' : 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🚀</span> 이벤트 오픈 및 관리
+        </button>
       </div>
 
       {adminTab === 'events' ? (
         <EventManagementTab onShowToast={showToast} />
+      ) : adminTab === 'open_manage' ? (
+        <EventOpenManagementTab onShowToast={showToast} />
       ) : (
         <>
           {/* Stats Metric Cards */}

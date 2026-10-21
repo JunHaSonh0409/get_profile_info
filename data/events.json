@@ -6,7 +6,7 @@
     "title": "비밀 인연 매칭 프로젝트",
     "subtitle": "곧 첫 번째 이벤트가 공개됩니다",
     "status": "upcoming",
-    "imageUrl": "",
+    "imageUrl": "https://brgudktnkiyzbazqhmqc.supabase.co/storage/v1/object/public/profile-photos/01/1792579675032_q2n2d.png",
     "dDayText": "PREVIEW · D-DAY EVENT",
     "badgeText": "ORBIT EXCLUSIVE",
     "description": "Orbit 회원들을 위한 특별한 첫 번째 시크릿 인연 매칭 이벤트입니다. 관리자 페이지에서 이벤트 포스터/이미지를 등록하면 카드에 즉시 반영됩니다.",
@@ -15,24 +15,6 @@
     "capacity": "선착순 30명 (남 15명 / 여 15명)",
     "content": "우주 모든 인연이 만날 때까지, Orbit이 준비한 첫 번째 스페셜 오프라인 매칭 파티입니다.\n\n엄격한 프로필 검증을 거친 회원들만 초대되며, 프라이빗하고 편안한 분위기에서 서로의 가치관과 이상형을 알아갈 수 있습니다.",
     "created_at": "2026-10-21T00:00:00.000Z",
-    "updated_at": "2026-10-21T00:00:00.000Z"
-  },
-  {
-    "id": "vol02",
-    "slug": "vol02",
-    "volNumber": "VOL.02",
-    "title": "가을밤 별빛 블라인드 데이트",
-    "subtitle": "두 번째 시크릿 매칭 라인업",
-    "status": "upcoming",
-    "imageUrl": "",
-    "dDayText": "COMING SOON",
-    "badgeText": "ORBIT SEASON 2",
-    "description": "깊어가는 가을, 별빛 아래서 나누는 진솔한 대화. 두 번째 Orbit 특별 매칭 이벤트입니다.",
-    "date": "2026.11.15 (토) 19:00 오픈 예정",
-    "location": "루프탑 가든 (선정 회원 개별 공지)",
-    "capacity": "선착순 24명 (남 12명 / 여 12명)",
-    "content": "서로의 외모 선호도와 성향이 매칭된 분들만을 엄선하여 초대하는 프라이빗 블라인드 데이트입니다.",
-    "created_at": "2026-10-21T00:00:00.000Z",
-    "updated_at": "2026-10-21T00:00:00.000Z"
+    "updated_at": "2026-10-21T10:47:58.518Z"
   }
 ]

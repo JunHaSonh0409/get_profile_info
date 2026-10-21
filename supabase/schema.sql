@@ -154,4 +154,44 @@ TO anon, authenticated
 USING (true)
 WITH CHECK (true);
 
+-- ==============================================================================
+-- 6. Event Applications 테이블 (이벤트 참가 신청자 명단 관리)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.event_applications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_slug VARCHAR(50) NOT NULL,
+    vol_number VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    gender VARCHAR(10) DEFAULT '',
+    age VARCHAR(50) DEFAULT '',
+    status VARCHAR(20) DEFAULT 'confirmed', -- 'pending', 'confirmed', 'cancelled'
+    memo TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 이벤트별 전화번호 중복 신청 방지 유니크 인덱스
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_app_unique ON public.event_applications(event_slug, phone);
+
+-- RLS 활성화
+ALTER TABLE public.event_applications ENABLE ROW LEVEL SECURITY;
+
+-- 누구나 이벤트 참가 신청(INSERT)할 수 있는 정책
+DROP POLICY IF EXISTS "누구나 이벤트에 참가 신청할 수 있습니다" ON public.event_applications;
+CREATE POLICY "누구나 이벤트에 참가 신청할 수 있습니다" 
+ON public.event_applications 
+FOR INSERT 
+TO anon, authenticated
+WITH CHECK (true);
+
+-- 관리자/조회 정책
+DROP POLICY IF EXISTS "이벤트 신청자 조회 및 관리 정책" ON public.event_applications;
+CREATE POLICY "이벤트 신청자 조회 및 관리 정책" 
+ON public.event_applications 
+FOR ALL 
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+
 

@@ -38,8 +38,7 @@ const defaultEvents: OrbitEvent[] = [
 
 export default function EventsSection({ onGoToProfile }: Props) {
   const router = useRouter();
-  const [isPulled, setIsPulled] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'ongoing' | 'upcoming'>('all');
+  const [isHovered, setIsHovered] = useState(false);
   const [isNotificationSaved, setIsNotificationSaved] = useState(false);
 
   // Dynamic events from API
@@ -60,8 +59,6 @@ export default function EventsSection({ onGoToProfile }: Props) {
   }, []);
 
   const currentEvent = events[selectedIndex] || events[0] || defaultEvents[0];
-  const nextEvent = events[(selectedIndex + 1) % events.length];
-  const prevEvent = events[(selectedIndex - 1 + events.length) % events.length];
 
   const handleCardClick = () => {
     router.push(`/events/${currentEvent.slug}`);
@@ -81,7 +78,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
       }}
     >
       {/* Category / Page Header */}
-      <div style={{ textAlign: 'center', marginBottom: '24px', width: '100%' }}>
+      <div style={{ textAlign: 'center', marginBottom: '22px', width: '100%' }}>
         <div
           style={{
             display: 'inline-flex',
@@ -115,7 +112,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '999px',
             padding: '4px',
-            gap: '4px',
+            gap: '6px',
             marginTop: '16px',
           }}
         >
@@ -131,8 +128,8 @@ export default function EventsSection({ onGoToProfile }: Props) {
                   color: isSelected ? '#fff' : 'var(--text-muted)',
                   border: isSelected ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
                   borderRadius: '999px',
-                  padding: '6px 14px',
-                  fontSize: '12px',
+                  padding: '6px 16px',
+                  fontSize: '12.5px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   letterSpacing: '1px',
@@ -148,7 +145,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
       </div>
 
       {/* ========================================================================= */}
-      {/* FROSTED GLASS POCKET SLEEVE ASSET (Inspired by user reference image)     */}
+      {/* STANDALONE EVENT CARD ASSET DESIGN (Matching User Reference Image)        */}
       {/* ========================================================================= */}
       <div
         style={{
@@ -156,384 +153,210 @@ export default function EventsSection({ onGoToProfile }: Props) {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          position: 'relative',
-          padding: '30px 0 24px',
-          perspective: '1000px',
+          padding: '20px 0 24px',
         }}
       >
-        {/* Left Ghost Pocket Preview (Clickable to switch volume) */}
+        {/* Main Event Card (Standalone design without overlapping case) */}
         <div
-          onClick={() => setSelectedIndex((selectedIndex - 1 + events.length) % events.length)}
-          title={`이전: ${prevEvent?.volNumber || 'VOL'}`}
-          style={{
-            position: 'absolute',
-            left: '-20px',
-            width: '90px',
-            height: '240px',
-            opacity: 0.35,
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            transition: 'opacity 0.2s',
-          }}
-        >
-          {/* Ghost Card Peek */}
-          <div
-            style={{
-              height: '180px',
-              background: 'linear-gradient(135deg, #18181b 0%, #09090b 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px 16px 0 0',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              paddingTop: '10px',
-              color: '#ef4444',
-              fontSize: '10px',
-              fontWeight: 800,
-            }}
-          >
-            {prevEvent?.volNumber}
-          </div>
-          {/* Ghost Sleeve */}
-          <div
-            style={{
-              height: '140px',
-              marginTop: '-100px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '0 0 16px 16px',
-            }}
-          />
-        </div>
-
-        {/* Right Ghost Pocket Preview (Clickable to switch volume) */}
-        <div
-          onClick={() => setSelectedIndex((selectedIndex + 1) % events.length)}
-          title={`다음: ${nextEvent?.volNumber || 'VOL'}`}
-          style={{
-            position: 'absolute',
-            right: '-20px',
-            width: '90px',
-            height: '240px',
-            opacity: 0.35,
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            transition: 'opacity 0.2s',
-          }}
-        >
-          {/* Ghost Card Peek */}
-          <div
-            style={{
-              height: '180px',
-              background: 'linear-gradient(135deg, #18181b 0%, #09090b 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px 16px 0 0',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'center',
-              paddingTop: '10px',
-              color: '#ef4444',
-              fontSize: '10px',
-              fontWeight: 800,
-            }}
-          >
-            {nextEvent?.volNumber}
-          </div>
-          {/* Ghost Sleeve */}
-          <div
-            style={{
-              height: '140px',
-              marginTop: '-100px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '0 0 16px 16px',
-            }}
-          />
-        </div>
-
-        {/* Center Main Event Pocket Container (Interactive Card & Sleeve) */}
-        <div
-          onMouseEnter={() => setIsPulled(true)}
-          onMouseLeave={() => setIsPulled(false)}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           onClick={handleCardClick}
           title="클릭하여 이벤트 상세 페이지로 이동"
           style={{
             position: 'relative',
-            width: 'min(300px, 80vw)',
-            height: '420px',
+            width: 'min(300px, 86vw)',
+            height: '400px',
+            borderRadius: '22px',
+            background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: isHovered
+              ? '0 30px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(239, 68, 68, 0.35)'
+              : '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(239, 68, 68, 0.2)',
+            transform: isHovered ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
+            transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 14px',
+            boxSizing: 'border-box',
             cursor: 'pointer',
           }}
         >
-          {/* 1. Backing Pocket Slot */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              width: '100%',
-              height: '240px',
-              background: 'rgba(10, 14, 26, 0.85)',
-              borderRadius: '0 0 24px 24px',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65)',
-            }}
-          />
+          {/* Registered Poster Image (if uploaded) */}
+          {currentEvent.imageUrl && (
+            <>
+              <img
+                src={currentEvent.imageUrl}
+                alt={currentEvent.title}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 0,
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background:
+                    'linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.2) 35%, rgba(0, 0, 0, 0.85) 100%)',
+                  zIndex: 1,
+                }}
+              />
+            </>
+          )}
 
-          {/* 2. THE EVENT CARD (Black card with Image or 3D Crystal Question Mark) */}
+          {/* Top Serial & Dots (Asset Style - Red, renders OVER image) */}
           <div
             style={{
-              position: 'absolute',
-              bottom: '20px',
-              width: '92%',
-              height: '380px',
-              borderRadius: '20px 20px 14px 14px',
-              background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              boxShadow: isPulled
-                ? '0 24px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(239, 68, 68, 0.25)'
-                : '0 12px 30px rgba(0, 0, 0, 0.75)',
-              transform: isPulled ? 'translateY(-48px)' : 'translateY(0)',
-              transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-              overflow: 'hidden',
+              position: 'relative',
               display: 'flex',
-              flexDirection: 'column',
-              padding: '18px 14px',
-              boxSizing: 'border-box',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
               zIndex: 2,
             }}
           >
-            {/* If registered image exists, display image with text overlayed directly on top */}
-            {currentEvent.imageUrl && (
-              <>
-                <img
-                  src={currentEvent.imageUrl}
-                  alt={currentEvent.title}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    zIndex: 0,
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 35%, rgba(0, 0, 0, 0.75) 100%)',
-                    zIndex: 1,
-                  }}
-                />
-              </>
-            )}
-
-            {/* Top Serial & Dots (Asset Style - Red, renders OVER image) */}
-            <div
+            <span
               style={{
-                position: 'relative',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingBottom: '8px',
-                borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
-                zIndex: 2,
+                fontSize: '11px',
+                fontWeight: 800,
+                color: '#ef4444',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
               }}
             >
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  color: '#ef4444',
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
-                }}
-              >
-                ORBIT EVENT · {currentEvent.volNumber}
-              </span>
-              <div style={{ display: 'flex', gap: '3px' }}>
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.65)' }} />
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.35)' }} />
-              </div>
-            </div>
-
-            {/* Upper Content: If no image, render 3D Crystal Question Mark Hero; if image, render hero preview */}
-            <div
-              style={{
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: currentEvent.imageUrl ? '18px' : '10px',
-                width: '100%',
-                zIndex: 2,
-              }}
-            >
-              {!currentEvent.imageUrl ? (
-                /* Preserved 3D Liquid Crystal Question Mark Asset */
-                <div
-                  style={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
-                  }}
-                >
-                  {/* Backing Ambient Cyan Glow */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      width: '110px',
-                      height: '110px',
-                      borderRadius: '50%',
-                      background:
-                        'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
-                      filter: 'blur(16px)',
-                      zIndex: 0,
-                      pointerEvents: 'none',
-                    }}
-                  />
-
-                  <img
-                    src="/images/crystal_question_mark.png"
-                    alt="Coming Soon Event"
-                    style={{
-                      position: 'relative',
-                      width: '94px',
-                      height: 'auto',
-                      maxHeight: '140px',
-                      objectFit: 'contain',
-                      filter:
-                        'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 22px rgba(56, 189, 248, 0.75))',
-                      zIndex: 1,
-                      userSelect: 'none',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                </div>
-              ) : (
-                /* Live badge when image is present */
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(0, 0, 0, 0.65)',
-                    border: '1px solid rgba(239, 68, 68, 0.5)',
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    color: '#ef4444',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '1px',
-                    backdropFilter: 'blur(6px)',
-                  }}
-                >
-                  <span>🎟️</span> POSTER PREVIEW
-                </div>
-              )}
+              ORBIT EVENT · {currentEvent.volNumber}
+            </span>
+            <div style={{ display: 'flex', gap: '3px' }}>
+              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />
+              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.65)' }} />
+              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.35)' }} />
             </div>
           </div>
 
-          {/* 3. FROSTED GLASS POCKET (Front Sleeve - texts rendered clearly ON the case) */}
+          {/* Center Content: 3D Crystal Question Mark or Image Live Indicator */}
           <div
             style={{
-              position: 'absolute',
-              bottom: 0,
-              width: '100%',
-              height: '230px',
-              background: 'rgba(255, 255, 255, 0.10)',
-              backdropFilter: 'blur(16px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-              border: '1px solid rgba(255, 255, 255, 0.22)',
-              borderTop: '2.5px solid rgba(255, 255, 255, 0.55)',
-              borderRadius: '0 0 24px 24px',
-              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.35)',
-              pointerEvents: 'none',
-              zIndex: 3,
+              position: 'relative',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '24px 18px 16px',
-              boxSizing: 'border-box',
-              textAlign: 'center',
+              justifyContent: 'center',
+              margin: 'auto 0',
+              zIndex: 2,
             }}
           >
-            {/* Center Content: Written ON the Card Case */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: '10px',
-                width: '100%',
-              }}
-            >
-              {/* Exact 'comming soon' / Title Typography in Red ON Card Case */}
+            {!currentEvent.imageUrl ? (
+              /* 3D Liquid Crystal Question Mark Asset with Ambient Cyan Glow */
               <div
                 style={{
-                  fontSize: '16px',
-                  fontWeight: 900,
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'floatCrystalQuestion 3.2s infinite ease-in-out alternate',
+                }}
+              >
+                {/* Backing Ambient Cyan Glow */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    width: '110px',
+                    height: '110px',
+                    borderRadius: '50%',
+                    background:
+                      'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(14, 165, 233, 0.15) 50%, transparent 75%)',
+                    filter: 'blur(16px)',
+                    zIndex: 0,
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                <img
+                  src="/images/crystal_question_mark.png"
+                  alt="Coming Soon Event"
+                  style={{
+                    position: 'relative',
+                    width: '92px',
+                    height: 'auto',
+                    maxHeight: '135px',
+                    objectFit: 'contain',
+                    filter:
+                      'drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.75))',
+                    zIndex: 1,
+                    userSelect: 'none',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(0, 0, 0, 0.65)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  padding: '5px 14px',
+                  borderRadius: '999px',
                   color: '#ef4444',
-                  letterSpacing: '4.5px',
-                  textTransform: 'uppercase',
-                  fontFamily: '"Outfit", sans-serif',
-                  textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 18px rgba(239, 68, 68, 0.75)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  backdropFilter: 'blur(6px)',
                 }}
               >
-                comming soon
+                <span>🎟️</span> POSTER PREVIEW
               </div>
+            )}
+          </div>
 
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#f87171',
-                  marginTop: '10px',
-                  lineHeight: 1.5,
-                  fontWeight: 600,
-                  textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
-                }}
-              >
-                {currentEvent.title || '비밀 인연 매칭 프로젝트'}
-                <br />
-                <span style={{ fontSize: '10.5px', color: '#fca5a5', opacity: 0.95 }}>
-                  {currentEvent.subtitle || '곧 첫 번째 이벤트가 공개됩니다'}
-                </span>
-              </div>
-            </div>
-
-            {/* Bottom Graphic Ribbon in Red ON Card Case */}
+          {/* Bottom Frosted Capsule Mockup (Exact layout from user screenshot) */}
+          <div
+            style={{
+              position: 'relative',
+              background: 'rgba(255, 255, 255, 0.10)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              borderTop: '2px solid rgba(255, 255, 255, 0.45)',
+              borderRadius: '14px',
+              padding: '12px 10px',
+              textAlign: 'center',
+              zIndex: 3,
+            }}
+          >
             <div
               style={{
-                width: '100%',
-                textAlign: 'center',
-                paddingTop: '10px',
-                borderTop: '1px solid rgba(239, 68, 68, 0.35)',
-                fontSize: '10.5px',
+                fontSize: '14px',
+                fontWeight: 900,
                 color: '#ef4444',
-                fontWeight: 700,
-                letterSpacing: '1.5px',
-                textShadow: '0 1px 8px rgba(0, 0, 0, 0.8)',
+                letterSpacing: '3.5px',
+                textTransform: 'uppercase',
+                fontFamily: '"Outfit", sans-serif',
+                textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 0 16px rgba(239, 68, 68, 0.75)',
               }}
             >
-              {currentEvent.dDayText || 'PREVIEW · D-DAY EVENT'}
+              COMMING SOON
+            </div>
+            <div
+              style={{
+                fontSize: '11.5px',
+                color: '#f87171',
+                marginTop: '5px',
+                fontWeight: 600,
+                textShadow: '0 1px 6px rgba(0, 0, 0, 0.8)',
+              }}
+            >
+              {currentEvent.title || '가을밤 별빛 블라인드 데이트'}
             </div>
           </div>
         </div>
@@ -580,18 +403,12 @@ export default function EventsSection({ onGoToProfile }: Props) {
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            color: '#38bdf8',
+            color: '#94a3b8',
             fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            padding: '4px 12px',
-            borderRadius: '999px',
-            background: 'rgba(14, 165, 233, 0.1)',
-            border: '1px solid rgba(14, 165, 233, 0.2)',
+            fontWeight: 500,
           }}
-          onClick={() => setIsPulled(!isPulled)}
         >
-          <span>{isPulled ? '👇 카드를 다시 넣으려면 터치' : '👆 카드를 터치하여 위로 꺼내보세요'}</span>
+          <span>👆</span> 카드를 터치하면 이벤트 상세 페이지로 이동합니다
         </div>
       </div>
 
@@ -742,7 +559,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
             transform: translateY(0px) scale(0.98);
           }
           100% {
-            transform: translateY(-5px) scale(1.02);
+            transform: translateY(-6px) scale(1.02);
           }
         }
       `}</style>

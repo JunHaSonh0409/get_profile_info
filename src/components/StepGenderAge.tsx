@@ -1,6 +1,5 @@
 'use client';
 
-import { MBTI_OPTIONS } from '@/lib/types';
 
 interface Props {
   gender: '남성' | '여성' | '';
@@ -98,59 +97,28 @@ export default function StepGenderAge({ gender, age, mbti, onChange, onEnter }: 
         </p>
       </div>
 
-      {/* MBTI 성격 유형 선택 */}
+      {/* MBTI 직접 입력 text 칸 */}
       <div className="form-group" style={{ marginTop: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <label className="form-label" style={{ margin: 0 }}>
-            MBTI 성격 유형 <span style={{ color: 'var(--text-muted)', fontSize: '11.5px', fontWeight: 500 }}>(선택)</span>
-          </label>
-          {mbti && (
-            <button
-              type="button"
-              onClick={() => onChange({ mbti: '' })}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-dim)',
-                fontSize: '11.5px',
-                cursor: 'pointer',
-                padding: '2px 6px',
-              }}
-            >
-              선택 취소
-            </button>
-          )}
-        </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
-          나에게 꼭 맞는 성향의 상대를 추천해드리기 위해 활용돼요.
+        <label className="form-label">
+          MBTI <span style={{ color: 'var(--text-muted)', fontSize: '11.5px', fontWeight: 500 }}>(선택)</span>
+        </label>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="MBTI를 입력해주세요 (예: ENFP, ISTJ)"
+          value={mbti || ''}
+          onChange={(e) => onChange({ mbti: e.target.value.toUpperCase() })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && gender && rawNumber.length >= 2 && onEnter) {
+              e.preventDefault();
+              onEnter();
+            }
+          }}
+          maxLength={10}
+        />
+        <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '8px' }}>
+          💡 본인의 MBTI를 자유롭게 적어주세요. (선택사항)
         </p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '7px' }}>
-          {MBTI_OPTIONS.map((m) => {
-            const isSelected = mbti === m;
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => onChange({ mbti: isSelected ? '' : m })}
-                style={{
-                  padding: '9px 4px',
-                  borderRadius: '10px',
-                  border: isSelected ? '1.5px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: isSelected ? 'rgba(255, 67, 112, 0.22)' : 'rgba(255, 255, 255, 0.03)',
-                  color: isSelected ? '#ff85a1' : 'var(--text-muted)',
-                  fontSize: '12.5px',
-                  fontWeight: isSelected ? 800 : 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isSelected ? '0 2px 10px rgba(255, 67, 112, 0.3)' : 'none',
-                }}
-              >
-                {m}
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

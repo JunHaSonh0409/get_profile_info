@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ProfileData, ANIMAL_OPTIONS, MBTI_OPTIONS } from '@/lib/types';
+import { ProfileData, ANIMAL_OPTIONS } from '@/lib/types';
 import StepLocation from './StepLocation';
 import ImageEditorModal from './ImageEditorModal';
 
@@ -1555,51 +1555,17 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
               />
             </div>
 
-            {/* MBTI 성격 유형 */}
+            {/* MBTI 직접 입력 text 칸 */}
             <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label className="form-label" style={{ margin: 0 }}>MBTI 성격 유형</label>
-                {editData.mbti && (
-                  <button
-                    type="button"
-                    onClick={() => setEditData({ ...editData, mbti: '' })}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-dim)',
-                      fontSize: '11.5px',
-                      cursor: 'pointer',
-                      padding: '2px 6px',
-                    }}
-                  >
-                    초기화
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                {MBTI_OPTIONS.map((m) => {
-                  const isSelected = editData.mbti === m;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setEditData({ ...editData, mbti: isSelected ? '' : m })}
-                      style={{
-                        padding: '7px 4px',
-                        borderRadius: '8px',
-                        border: isSelected ? '1px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: isSelected ? 'rgba(255, 67, 112, 0.22)' : 'rgba(255, 255, 255, 0.03)',
-                        color: isSelected ? '#ff85a1' : 'var(--text-muted)',
-                        fontSize: '12px',
-                        fontWeight: isSelected ? 800 : 500,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
+              <label className="form-label">MBTI</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="MBTI를 입력해주세요 (예: ENFP, ISTJ)"
+                value={editData.mbti || ''}
+                onChange={(e) => setEditData({ ...editData, mbti: e.target.value.toUpperCase() })}
+                maxLength={10}
+              />
             </div>
 
             {/* 거주 지역 (구 단위) */}

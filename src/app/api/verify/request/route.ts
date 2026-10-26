@@ -1,15 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 const OCTOMO_RECEIVING_NUMBER = '1666-3538';
-
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-const supabaseKey = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  ''
-).trim();
 
 export async function POST(request: Request) {
   try {

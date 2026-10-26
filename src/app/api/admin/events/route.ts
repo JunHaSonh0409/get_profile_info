@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from '@/lib/adminAuth';
+import { checkAdminAuth } from '@/lib/adminAuth';
 import { getAllEvents, upsertEvent, getLocalEvents, saveLocalEvents } from '@/lib/events';
 import { supabase } from '@/lib/supabase';
-
-async function checkAdminAuth() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  const verification = verifyAdminSessionToken(sessionToken);
-  return verification.valid;
-}
 
 export async function GET() {
   const isAuth = await checkAdminAuth();

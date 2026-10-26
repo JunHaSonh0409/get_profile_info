@@ -1,20 +1,30 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 
-// Environment credentials & secret getters with quotation cleanup
-function getAdminUsername(): string {
-  const raw = process.env.ADMIN_USERNAME || 'dkdlel0409';
+// Environment credentials & secret getters with quotation cleanup.
+// No fallbacks: when a variable is missing, auth fails closed.
+function readEnv(name: string): string {
+  const raw = process.env[name] || '';
   return raw.replace(/^["']|["']$/g, '').trim();
+}
+
+function getAdminUsername(): string {
+  return readEnv('ADMIN_USERNAME');
 }
 
 function getAdminPassword(): string {
-  const raw = process.env.ADMIN_PASSWORD || '0954258a@!#';
-  return raw.replace(/^["']|["']$/g, '').trim();
+  return readEnv('ADMIN_PASSWORD');
 }
 
 function getAdminSecretKey(): string {
-  const raw = process.env.ADMIN_SECRET_KEY || 'b95d909988a873e16447c2162657e2bbcf9e8f6eacb07978d3ba1d48c0a373b5';
-  return raw.replace(/^["']|["']$/g, '').trim();
+  return readEnv('ADMIN_SECRET_KEY');
+}
+
+/**
+ * True only when username, password and signing secret are all configured
+ */
+export function isAdminAuthConfigured(): boolean {
+  return Boolean(getAdminUsername() && getAdminPassword() && getAdminSecretKey());
 }
 
 export const ADMIN_COOKIE_NAME = 'orbit_admin_session';
@@ -147,6 +157,7 @@ export function timingSafeCompare(a: string, b: string): boolean {
  * Validates admin credentials using timing-safe comparison
  */
 export function verifyAdminCredentials(inputUser: string, inputPass: string): boolean {
+  if (!isAdminAuthConfigured()) return false;
   const isUserValid = timingSafeCompare(inputUser, getAdminUsername());
   const isPassValid = timingSafeCompare(inputPass, getAdminPassword());
   return isUserValid && isPassValid;
@@ -156,6 +167,11 @@ export function verifyAdminCredentials(inputUser: string, inputPass: string): bo
  * Creates a cryptographically signed HMAC-SHA256 session token
  */
 export function createAdminSessionToken(username: string): string {
+  const secret = getAdminSecretKey();
+  if (!secret) {
+    throw new Error('ADMIN_SECRET_KEY is not configured');
+  }
+
   const issuedAt = Date.now();
   const expiresAt = issuedAt + SESSION_DURATION_SECONDS * 1000;
   const nonce = crypto.randomBytes(16).toString('hex');
@@ -170,7 +186,7 @@ export function createAdminSessionToken(username: string): string {
 
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', getAdminSecretKey())
+    .createHmac('sha256', secret)
     .update(payloadB64)
     .digest('base64url');
 
@@ -196,9 +212,14 @@ export function verifyAdminSessionToken(token: string | null | undefined): {
 
   const [payloadB64, signature] = parts;
 
+  const secret = getAdminSecretKey();
+  if (!secret) {
+    return { valid: false, error: 'NOT_CONFIGURED' };
+  }
+
   // Expected signature
   const expectedSig = crypto
-    .createHmac('sha256', getAdminSecretKey())
+    .createHmac('sha256', secret)
     .update(payloadB64)
     .digest('base64url');
 
@@ -250,4 +271,13 @@ export function getAdminSessionFromRequest(request: Request): {
   }
 
   return { authenticated: false };
+}
+
+/**
+ * Checks session validity from the current request's cookies (next/headers)
+ */
+export async function checkAdminAuth(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+  return verifyAdminSessionToken(sessionToken).valid;
 }

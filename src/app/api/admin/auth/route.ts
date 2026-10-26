@@ -7,6 +7,7 @@ import {
   verifyAdminCredentials,
   createAdminSessionToken,
   getAdminSessionFromRequest,
+  isAdminAuthConfigured,
   ADMIN_COOKIE_NAME,
   SESSION_DURATION_SECONDS,
 } from '@/lib/adminAuth';
@@ -47,6 +48,15 @@ export async function GET(request: Request) {
  * POST: Authenticate admin credentials with rate-limiting & timing-attack defense
  */
 export async function POST(request: Request) {
+  // 0. Fail closed when admin credentials / signing secret are not configured
+  if (!isAdminAuthConfigured()) {
+    console.error('Admin auth is not configured: set ADMIN_USERNAME, ADMIN_PASSWORD and ADMIN_SECRET_KEY.');
+    return NextResponse.json(
+      { success: false, error: '관리자 인증이 서버에 설정되지 않았습니다. 관리자에게 문의해주세요.' },
+      { status: 503, headers: securityHeaders }
+    );
+  }
+
   const ip = getClientIp(request);
 
   // 1. Check Rate Limit (Anti-Brute Force)

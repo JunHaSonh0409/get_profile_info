@@ -697,13 +697,14 @@ export default function EventsSection({ onGoToProfile }: Props) {
             <span>💫</span> 프로필 등록/확인하러 가기 →
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              window.open('https://pf.kakao.com/_txnqmX', '_blank', 'noopener,noreferrer');
-              setIsNotificationSaved(true);
-            }}
+          <a
+            href="https://pf.kakao.com/_txnqmX"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setIsNotificationSaved(true)}
             style={{
+              boxSizing: 'border-box',
+              textDecoration: 'none',
               width: '100%',
               background: isNotificationSaved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
               color: isNotificationSaved ? '#34d399' : 'var(--text-muted)',
@@ -721,7 +722,7 @@ export default function EventsSection({ onGoToProfile }: Props) {
           >
             <span>{isNotificationSaved ? '✓' : '🔔'}</span>
             {isNotificationSaved ? '카카오톡 채널에서 오픈 알림을 받아보세요' : '이벤트 오픈 시 알림 받기'}
-          </button>
+          </a>
         </div>
       </div>
 

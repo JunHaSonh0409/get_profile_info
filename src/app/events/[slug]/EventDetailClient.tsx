@@ -652,13 +652,14 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
             </button>
           ) : (
             /* EVENT NOT OPEN YET -> NOTIFICATION / COMING SOON */
-            <button
-              type="button"
-              onClick={() => {
-                window.open('https://pf.kakao.com/_txnqmX', '_blank', 'noopener,noreferrer');
-                setIsNotified(true);
-              }}
+            <a
+              href="https://pf.kakao.com/_txnqmX"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsNotified(true)}
               style={{
+                boxSizing: 'border-box',
+                textDecoration: 'none',
                 width: '100%',
                 background: isNotified ? 'rgba(52, 211, 153, 0.2)' : 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
                 color: isNotified ? '#34d399' : '#ffffff',
@@ -678,7 +679,7 @@ export default function EventDetailClient({ event: initialEvent }: Props) {
             >
               <span>{isNotified ? '✓' : '🔔'}</span>
               {isNotified ? '카카오톡 채널에서 오픈 알림을 받아보세요' : '이벤트 오픈 시 알림 신청하기'}
-            </button>
+            </a>
           )}
 
           <Link

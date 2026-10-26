@@ -1,21 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getAdminSessionFromRequest } from '@/lib/adminAuth';
-
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-const supabaseKey = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  ''
-).trim();
-
-const isConfigured = Boolean(
-  supabaseUrl &&
-  supabaseKey &&
-  supabaseUrl.startsWith('https://') &&
-  !supabaseUrl.includes('your-project-id')
-);
 
 const securityHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -76,7 +61,7 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!isConfigured) {
+  if (!isSupabaseConfigured) {
     return NextResponse.json(
       {
         success: true,
@@ -96,9 +81,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from('profiles')
@@ -168,16 +151,14 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (!isConfigured) {
+    if (!isSupabaseConfigured) {
       return NextResponse.json(
         { success: true, message: '데모 모드: 삭제 요청이 성공적으로 처리되었습니다.' },
         { status: 200, headers: securityHeaders }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createServerSupabaseClient();
 
     const { error } = await supabase
       .from('profiles')

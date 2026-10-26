@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
 const supabaseKey = (
@@ -26,3 +26,13 @@ export const supabase = isSupabaseConfigured
       },
     })
   : null;
+
+// Per-request server client for API routes (no session persistence)
+export function createServerSupabaseClient(): SupabaseClient {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured');
+  }
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+}

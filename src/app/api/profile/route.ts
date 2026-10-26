@@ -1,22 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-const supabaseKey = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  ''
-).trim();
-
-const isConfigured = Boolean(
-  supabaseUrl &&
-  supabaseKey &&
-  supabaseUrl.startsWith('https://') &&
-  !supabaseUrl.includes('your-project-id') &&
-  !supabaseKey.includes('your-anon-key')
-);
+import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 // Standard CORS and Cache-Control headers for Vercel serverless functions
 const corsHeaders = {
@@ -122,10 +105,8 @@ export async function POST(request: Request) {
     }
 
     // Insert into Supabase when configured
-    if (isConfigured) {
-      const supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false },
-      });
+    if (isSupabaseConfigured) {
+      const supabase = createServerSupabaseClient();
 
       const cleanPhone = String(phone).replace(/[^0-9]/g, '').trim();
 
@@ -287,10 +268,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (isConfigured) {
-      const supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false },
-      });
+    if (isSupabaseConfigured) {
+      const supabase = createServerSupabaseClient();
 
       const updatePayload: Record<string, unknown> = {
         name: name?.trim(),
@@ -435,7 +414,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const phoneParam = searchParams.get('phone');
 
-  if (!isConfigured) {
+  if (!isSupabaseConfigured) {
     return NextResponse.json(
       {
         success: true,
@@ -449,9 +428,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createServerSupabaseClient();
 
     if (!phoneParam) {
       return NextResponse.json(

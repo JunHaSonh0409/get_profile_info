@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const isConfigured = Boolean(supabaseUrl && supabaseKey);
+import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,16 +13,14 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
-    if (!isConfigured) {
+    if (!isSupabaseConfigured) {
       return NextResponse.json(
         { success: false, error: 'Supabase 연결 정보가 설정되지 않았습니다.' },
         { status: 500, headers: corsHeaders }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createServerSupabaseClient();
 
     const contentType = request.headers.get('content-type') || '';
     let imagesToUpload: string[] = [];

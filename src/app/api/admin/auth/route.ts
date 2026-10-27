@@ -11,19 +11,9 @@ import {
   SESSION_DURATION_SECONDS,
 } from '@/lib/adminAuth';
 import { API_HEADERS, fail, json } from '@/lib/http';
+import { sessionCookie } from '@/lib/sessionToken';
 
-function sessionCookie(token: string, maxAge: number) {
-  return [
-    `${ADMIN_COOKIE_NAME}=${token}`,
-    'Path=/',
-    `Max-Age=${maxAge}`,
-    'HttpOnly',
-    'SameSite=Strict',
-    process.env.NODE_ENV === 'production' ? 'Secure' : '',
-  ]
-    .filter(Boolean)
-    .join('; ');
-}
+const adminCookie = (token: string, maxAge: number) => sessionCookie(ADMIN_COOKIE_NAME, token, maxAge, 'Strict');
 
 function locked(error: string, remainingSeconds: number) {
   return json({ success: false, error, locked: true, remainingSeconds }, 429, {
@@ -68,7 +58,7 @@ export async function POST(request: Request) {
 
     resetRateLimit(ip);
     const response = json({ success: true, username });
-    response.headers.set('Set-Cookie', sessionCookie(createAdminSessionToken(username), SESSION_DURATION_SECONDS));
+    response.headers.set('Set-Cookie', adminCookie(createAdminSessionToken(username), SESSION_DURATION_SECONDS));
     return response;
   } catch (err) {
     console.error('Admin auth error:', err);
@@ -78,6 +68,6 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   const response = json({ success: true });
-  response.headers.set('Set-Cookie', sessionCookie('', 0));
+  response.headers.set('Set-Cookie', adminCookie('', 0));
   return response;
 }

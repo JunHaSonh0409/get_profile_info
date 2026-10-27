@@ -2,6 +2,7 @@ import { createApplication, getApplications } from '@/lib/applications';
 import { getEventBySlug } from '@/lib/events';
 import { parseCapacity } from '@/lib/eventCapacity';
 import { errorMessage, fail, json } from '@/lib/http';
+import { getMemberPhone } from '@/lib/memberAuth';
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
       eventSlug,
       volNumber: event.volNumber,
       name: String(name || ''),
-      phone: String(phone || ''),
+      // Applying stays open to guests, but a logged-in member applies with their verified number.
+      phone: getMemberPhone(request) ?? String(phone || ''),
       gender,
       age: age || '',
       status: 'confirmed',

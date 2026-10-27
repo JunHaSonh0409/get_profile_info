@@ -147,7 +147,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
         await fetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ images: dataUrls, phone: profile.phone }),
+          body: JSON.stringify({ images: dataUrls }),
         })
       ).json();
       if (!result.success || !result.urls?.length) throw new Error(result.error || '사진을 올리지 못했어요.');

@@ -86,6 +86,20 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
+### 4. 인증 관련 환경변수
+
+| 변수 | 필수 | 설명 |
+| --- | --- | --- |
+| `MEMBER_SESSION_SECRET` | ✅ | 회원 세션 쿠키(`orbit_member_session`) HMAC 서명 키. 없으면 로그인이 503으로 막힙니다. `ADMIN_SECRET_KEY`와 다른 값을 쓰세요. |
+| `OCTOMO_API_KEY` | production ✅ | 문자 인증 확인용. 비어 있으면 **개발 환경(`NODE_ENV !== production`)에서만** 모든 번호가 데모 통과하고, production에서는 인증이 503으로 거부됩니다. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_SECRET_KEY` | ✅ (관리자) | 관리자 로그인. 하나라도 없으면 관리자 로그인이 막힙니다. |
+
+랜덤 시크릿 생성: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+문자 인증(`/api/verify/check`)이 통과하면 서버가 HttpOnly·SameSite=Lax(production에서는 Secure) 서명 쿠키를 발급하고,
+`GET/POST/PUT /api/profile`과 `/api/upload`는 이 쿠키의 전화번호만 사용합니다(클라이언트가 보낸 phone/id는 무시, 세션이 없으면 401).
+로그아웃은 `POST /api/member/logout`.
+
 ---
 
 ## ☁️ Vercel 배포 가이드
@@ -102,9 +116,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
    - 해당 GitHub 저장소를 선택하여 `Import`
 
 3. **환경 변수(Environment Variables) 등록**
-   Vercel 대시보드의 **Settings -> Environment Variables**에 아래 2가지 변수를 추가합니다:
+   Vercel 대시보드의 **Settings -> Environment Variables**에 아래 변수를 추가합니다:
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://your-project-id.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-anon-key-here`
+   - `MEMBER_SESSION_SECRET`, `OCTOMO_API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SECRET_KEY` (위 "인증 관련 환경변수" 참고)
 
 4. **Deploy 버튼 클릭**
    - 1분 안에 전 세계 CDN에 최적화된 URL이 발급됩니다!

@@ -1,18 +1,5 @@
 import { RegionGroup } from './types';
 
-export const POPULAR_REGIONS = [
-  '서울 강남구',
-  '서울 마포구',
-  '서울 송파구',
-  '서울 서초구',
-  '서울 영등포구',
-  '경기 성남시 분당구',
-  '경기 수원시',
-  '경기 용인시 수지구',
-  '인천 연수구 (송도)',
-  '부산 해운대구',
-];
-
 export const KOREA_REGIONS: RegionGroup[] = [
   {
     province: '서울특별시',

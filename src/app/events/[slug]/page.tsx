@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { getEventBySlug, getAllEvents } from '@/lib/events';
 import EventDetailClient from './EventDetailClient';
@@ -15,33 +15,13 @@ export async function generateStaticParams() {
 async function EventPageContent({ params }: Props) {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
-
-  if (!event) {
-    notFound();
-  }
-
+  if (!event) notFound();
   return <EventDetailClient event={event} />;
 }
 
 export default function EventPage({ params }: Props) {
   return (
-    <Suspense
-      fallback={
-        <div
-          style={{
-            minHeight: '100vh',
-            background: 'radial-gradient(ellipse at 50% 10%, #0f172a 0%, #07090e 70%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#94a3b8',
-            fontSize: '14px',
-          }}
-        >
-          이벤트 페이지 로딩 중...
-        </div>
-      }
-    >
+    <Suspense fallback={<p className="shell center muted">이벤트를 불러오는 중</p>}>
       <EventPageContent params={params} />
     </Suspense>
   );

@@ -1,79 +1,41 @@
-import { NextResponse } from 'next/server';
-import { checkAdminAuth } from '@/lib/adminAuth';
-import { getAllEvents, upsertEvent, getLocalEvents, saveLocalEvents } from '@/lib/events';
-import { supabase } from '@/lib/supabase';
+import { deleteEvent, getAllEvents, upsertEvent } from '@/lib/events';
+import { errorMessage, fail, json, requireAdmin } from '@/lib/http';
 
-export async function GET() {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
+export async function GET(request: Request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
 
   try {
-    const events = await getAllEvents();
-    return NextResponse.json({ success: true, events });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to load events' },
-      { status: 500 }
-    );
+    return json({ success: true, events: await getAllEvents() });
+  } catch (err) {
+    return fail(errorMessage(err, 'Failed to load events'), 500);
   }
 }
 
 export async function POST(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
+  const denied = requireAdmin(request);
+  if (denied) return denied;
 
   try {
     const body = await request.json();
-    if (!body.slug) {
-      return NextResponse.json(
-        { success: false, error: 'Slug (e.g. vol01) is required' },
-        { status: 400 }
-      );
-    }
-
-    const updatedEvent = await upsertEvent(body);
-    return NextResponse.json({ success: true, event: updatedEvent });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to save event' },
-      { status: 500 }
-    );
+    if (!body.slug) return fail('Slug (e.g. vol01) is required', 400);
+    return json({ success: true, event: await upsertEvent(body) });
+  } catch (err) {
+    return fail(errorMessage(err, 'Failed to save event'), 500);
   }
 }
 
 export async function DELETE(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
+  const slug = new URL(request.url).searchParams.get('slug');
+  if (!slug) return fail('Slug is required', 400);
 
   try {
-    const { searchParams } = new URL(request.url);
-    const slug = searchParams.get('slug');
-    if (!slug) {
-      return NextResponse.json({ success: false, error: 'Slug is required' }, { status: 400 });
-    }
-
-    const events = getLocalEvents().filter((e) => e.slug.toLowerCase() !== slug.toLowerCase());
-    saveLocalEvents(events);
-
-    if (supabase) {
-      try {
-        await supabase.from('events').delete().eq('slug', slug);
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    return NextResponse.json({ success: true, message: 'Event deleted successfully' });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to delete event' },
-      { status: 500 }
-    );
+    await deleteEvent(slug);
+    return json({ success: true });
+  } catch (err) {
+    return fail(errorMessage(err, 'Failed to delete event'), 500);
   }
 }

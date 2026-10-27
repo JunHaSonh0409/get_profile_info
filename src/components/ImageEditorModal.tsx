@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { Icon } from './ui';
 
 export interface ImageEditorModalProps {
   isOpen: boolean;
@@ -34,11 +35,8 @@ export default function ImageEditorModal({
   onComplete,
   onSkipEdit,
 }: ImageEditorModalProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  // Mounted once per image (the caller keys it), so initial state doubles as the reset.
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [mode, setMode] = useState<EditorMode>('blur');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [blurIntensity, setBlurIntensity] = useState<BlurIntensity>('weak');
@@ -142,6 +140,7 @@ export default function ImageEditorModal({
 
         canvas.width = targetW;
         canvas.height = targetH;
+        setCanvasSize({ width: targetW, height: targetH });
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
@@ -199,14 +198,8 @@ export default function ImageEditorModal({
   }, [imageSrc, applyAspectRatio]);
 
   useEffect(() => {
-    if (isOpen && mounted) {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      initCanvas();
-      setMode('blur');
-      setAspectRatio('3:4');
-      setBlurIntensity('weak');
-    }
-  }, [isOpen, mounted, initCanvas]);
+    if (isOpen) initCanvas();
+  }, [isOpen, initCanvas]);
 
   // Global drag release listener to ensure dragging stops even when mouseup occurs outside canvas
   useEffect(() => {
@@ -578,754 +571,140 @@ export default function ImageEditorModal({
     }
   };
 
-  if (!isOpen || !mounted) return null;
+  if (!isOpen) return null;
+
+  const { width: cw, height: ch } = canvasSize;
+  const pct = (v: number, total: number) => `${(v / (total || 1)) * 100}%`;
+  const crop = cw
+    ? {
+        left: pct(cropRect.x, cw),
+        top: pct(cropRect.y, ch),
+        width: pct(cropRect.width, cw),
+        height: pct(cropRect.height, ch),
+        right: pct(cw - cropRect.x - cropRect.width, cw),
+        bottom: pct(ch - cropRect.y - cropRect.height, ch),
+      }
+    : null;
 
   const modalContent = (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        width: '100%',
-        minHeight: '100vh',
-        zIndex: 999999,
-        background: 'rgba(6, 8, 14, 0.94)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        padding: '24px 12px 80px',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '520px',
-          background: 'rgba(18, 20, 29, 0.98)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRadius: '20px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 67, 112, 0.2)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'visible',
-          animation: 'fadeIn 0.2s ease-out',
-        }}
-      >
-        {/* Header (Sticky top) */}
-        <div
-          style={{
-            padding: '14px 18px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            position: 'sticky',
-            top: 0,
-            zIndex: 30,
-            background: 'rgba(18, 20, 29, 0.98)',
-            backdropFilter: 'blur(10px)',
-            borderTopLeftRadius: '20px',
-            borderTopRightRadius: '20px',
-          }}
-        >
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="photo-editor-title">
+        <div className="modal__head">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16.5px', fontWeight: 800, color: '#fff' }}>
-                ✂️ 사진 편집기
-              </span>
-              {totalCount > 1 && (
-                <span
-                  style={{
-                    background: 'rgba(255, 67, 112, 0.2)',
-                    color: '#ff85a1',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                  }}
-                >
-                  {currentIndex} / {totalCount}
+            <h2 id="photo-editor-title" className="title">
+              사진 편집 {totalCount > 1 && <span className="muted small">{currentIndex} / {totalCount}</span>}
+            </h2>
+            <p className="hint">얼굴을 문질러 가린 뒤, 비율을 맞춰 등록하세요.</p>
+          </div>
+          <button type="button" className="icon-btn" onClick={onCancel} aria-label="편집 취소">
+            <Icon name="close" />
+          </button>
+        </div>
+
+        <div className="modal__body">
+          <p className="notice notice--error">
+            Orbit은 사생활 보호를 위해 <strong>얼굴 가림이 필수</strong>예요. 얼굴 가리기 탭에서 얼굴 부위를 문질러주세요.
+          </p>
+
+          <div className="seg" role="tablist" aria-label="편집 도구">
+            <button type="button" role="tab" aria-selected={mode === 'blur'} onClick={() => setMode('blur')}>
+              얼굴 가리기
+            </button>
+            <button type="button" role="tab" aria-selected={mode === 'crop'} onClick={() => setMode('crop')}>
+              비율 자르기
+            </button>
+          </div>
+
+          {mode === 'blur' ? (
+            <div className="stack">
+              <div className="row row--wrap">
+                <span className="small muted">강도</span>
+                <button type="button" className="chip" aria-pressed={blurIntensity === 'weak'} onClick={() => setBlurIntensity('weak')}>
+                  약하게
+                </button>
+                <button type="button" className="chip" aria-pressed={blurIntensity === 'strong'} onClick={() => setBlurIntensity('strong')}>
+                  강하게
+                </button>
+              </div>
+              <div className="row row--wrap">
+                <span className="small muted">브러시</span>
+                {(['small', 'medium', 'large'] as BrushSize[]).map((size) => (
+                  <button key={size} type="button" className="chip" aria-pressed={brushSize === size} onClick={() => setBrushSize(size)}>
+                    {size === 'small' ? '작게' : size === 'medium' ? '보통' : '크게'}
+                  </button>
+                ))}
+                <span style={{ marginLeft: 'auto' }} className="row">
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={handleUndo} disabled={!canUndo}>
+                    <Icon name="undo" /> 되돌리기
+                  </button>
+                  <button type="button" className="btn btn--quiet btn--sm" onClick={handleResetBlur} disabled={!canUndo}>
+                    처음으로
+                  </button>
                 </span>
+              </div>
+            </div>
+          ) : (
+            <div className="row row--wrap">
+              <span className="small muted">비율</span>
+              {([
+                ['3:4', '3:4 카드'],
+                ['1:1', '1:1'],
+                ['full', '원본'],
+              ] as [AspectRatio, string][]).map(([ratio, label]) => (
+                <button key={ratio} type="button" className="chip" aria-pressed={aspectRatio === ratio} onClick={() => applyAspectRatio(ratio)}>
+                  {label}
+                </button>
+              ))}
+              <span className="hint" style={{ marginLeft: 'auto' }}>상자를 끌어 위치를 옮기세요</span>
+            </div>
+          )}
+
+          <div className="center" ref={containerRef}>
+            <div
+              className="editor-canvas"
+              style={{ cursor: mode === 'blur' ? 'crosshair' : 'move' }}
+              onMouseDown={handlePointerDown}
+              onMouseMove={handlePointerMove}
+              onMouseUp={handlePointerUp}
+              onMouseLeave={(e) => {
+                if (e.buttons === 0) dragActionRef.current = null;
+              }}
+              onTouchStart={handlePointerDown}
+              onTouchMove={handlePointerMove}
+              onTouchEnd={handlePointerUp}
+            >
+              <canvas ref={canvasRef} />
+              {mode === 'crop' && crop && (
+                <>
+                  <div className="crop-shade" style={{ left: 0, top: 0, right: 0, height: crop.top }} />
+                  <div className="crop-shade" style={{ left: 0, bottom: 0, right: 0, height: crop.bottom }} />
+                  <div className="crop-shade" style={{ left: 0, top: crop.top, bottom: crop.bottom, width: crop.left }} />
+                  <div className="crop-shade" style={{ right: 0, top: crop.top, bottom: crop.bottom, width: crop.right }} />
+                  <div className="crop-box" style={{ left: crop.left, top: crop.top, width: crop.width, height: crop.height }}>
+                    <span className="crop-handle" style={{ left: -10, top: -10 }} />
+                    <span className="crop-handle" style={{ right: -10, top: -10 }} />
+                    <span className="crop-handle" style={{ right: -10, bottom: -10 }} />
+                    <span className="crop-handle" style={{ left: -10, bottom: -10 }} />
+                  </div>
+                </>
               )}
             </div>
-            <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.6)' }}>
-              비율을 맞추고 얼굴을 자연스럽게 모자이크(블러) 처리하세요
-            </p>
           </div>
+        </div>
 
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: 'none',
-              color: '#fff',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              fontSize: '16px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            ✕
+        <div className="modal__foot" style={{ flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn--quiet" onClick={handleSkipClick} title="얼굴이 없는 풍경이나 사물 사진일 때만">
+            원본으로 등록
           </button>
-        </div>
-
-        {/* Center Body: Mandatory Alert + Toolbar + Canvas Area */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* 🚨 Mandatory Mosaic Warning Alert Banner */}
-          <div
-            style={{
-              margin: '12px 14px 4px',
-              padding: '12px 14px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(185, 28, 28, 0.32) 100%)',
-              border: '1.5px solid #ef4444',
-              boxShadow: '0 4px 18px rgba(239, 68, 68, 0.3)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-              flexShrink: 0,
-            }}
-          >
-            <div
-              style={{
-                fontSize: '18px',
-                background: 'rgba(239, 68, 68, 0.3)',
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              🚨
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span
-                  style={{
-                    background: '#ef4444',
-                    color: '#fff',
-                    fontSize: '10.5px',
-                    fontWeight: 900,
-                    padding: '2px 7px',
-                    borderRadius: '6px',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  필수 안내
-                </span>
-                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#fef2f2' }}>
-                  얼굴/이목구비 모자이크(블러)는 필수입니다!
-                </span>
-              </div>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#fca5a5', lineHeight: 1.45 }}>
-                Orbit은 개인정보 및 프라이버시 보호를 위해 <b>얼굴 부위 모자이크 처리를 필수</b>로 운영하고 있습니다.
-                아래 <b>'🌫️ 얼굴/배경 블러'</b> 탭에서 사진 속 얼굴을 문질러 가려주세요.
-              </p>
-            </div>
-          </div>
-
-          {/* Toolbar Switcher */}
-          <div
-            style={{
-              padding: '10px 14px',
-              background: 'rgba(255, 255, 255, 0.03)',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              flexShrink: 0,
-            }}
-          >
-            {/* Main Mode Tabs */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setMode('blur')}
-                style={{
-                  flex: 1.2,
-                  padding: '9px 12px',
-                  borderRadius: '10px',
-                  border: mode === 'blur' ? '1.5px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.4)',
-                  background: mode === 'blur'
-                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.45) 100%)'
-                    : 'rgba(239, 68, 68, 0.08)',
-                  color: mode === 'blur' ? '#fff' : '#fca5a5',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  boxShadow: mode === 'blur' ? '0 0 16px rgba(239, 68, 68, 0.4)' : 'none',
-                  transition: 'all 0.15s',
-                }}
-              >
-                🌫️ 얼굴/배경 블러{' '}
-                <span
-                  style={{
-                    fontSize: '10px',
-                    background: '#ef4444',
-                    color: '#fff',
-                    padding: '1px 5px',
-                    borderRadius: '4px',
-                    fontWeight: 900,
-                  }}
-                >
-                  필수 🚨
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMode('crop')}
-                style={{
-                  flex: 1,
-                  padding: '9px 12px',
-                  borderRadius: '10px',
-                  border: mode === 'crop' ? '1.5px solid #ff4370' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: mode === 'crop' ? 'rgba(255, 67, 112, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                  color: mode === 'crop' ? '#ff85a1' : 'rgba(255, 255, 255, 0.75)',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s',
-                }}
-              >
-                ✂️ 비율 자르기
-              </button>
-            </div>
-
-          {/* Sub-tools for Crop Mode */}
-          {mode === 'crop' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', marginRight: '4px' }}>
-                비율 선택:
-              </span>
-              <button
-                type="button"
-                onClick={() => applyAspectRatio('3:4')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: aspectRatio === '3:4' ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: aspectRatio === '3:4' ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
-                  color: aspectRatio === '3:4' ? '#fff' : 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                3:4 (카드 추천 ⭐)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyAspectRatio('1:1')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: aspectRatio === '1:1' ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: aspectRatio === '1:1' ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
-                  color: aspectRatio === '1:1' ? '#fff' : 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                1:1 (정사각형)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyAspectRatio('full')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: aspectRatio === 'full' ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: aspectRatio === 'full' ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
-                  color: aspectRatio === 'full' ? '#fff' : 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                원본 전체
-              </button>
-              <span style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.4)', marginLeft: 'auto' }}>
-                💡 네모 박스를 드래그하여 위치 이동
-              </span>
-            </div>
-          )}
-
-          {/* Sub-tools for Blur Mode */}
-          {mode === 'blur' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Blur Intensity Selector (Weak vs Strong as in User Assets) */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.6)', fontWeight: 600 }}>
-                  블러 강도:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setBlurIntensity('weak')}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '8px',
-                    border: blurIntensity === 'weak' ? '1.5px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.15)',
-                    background: blurIntensity === 'weak' ? 'rgba(255, 67, 112, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                    color: blurIntensity === 'weak' ? '#fff' : 'rgba(255, 255, 255, 0.75)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                  }}
-                >
-                  🫧 약한 블러 (이목구비 잘 보임)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBlurIntensity('strong')}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '8px',
-                    border: blurIntensity === 'strong' ? '1.5px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.15)',
-                    background: blurIntensity === 'strong' ? 'rgba(255, 67, 112, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                    color: blurIntensity === 'strong' ? '#fff' : 'rgba(255, 255, 255, 0.75)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                  }}
-                >
-                  🌫️ 강한 블러 (기존 약한 블러 수준)
-                </button>
-              </div>
-
-              {/* Brush Size & Undo Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)' }}>브러시 크기:</span>
-                {(['small', 'medium', 'large'] as BrushSize[]).map((size) => {
-                  const label = size === 'small' ? '소' : size === 'medium' ? '중' : '대';
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setBrushSize(size)}
-                      style={{
-                        padding: '3px 9px',
-                        borderRadius: '6px',
-                        border: brushSize === size ? '1px solid #ff85a1' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: brushSize === size ? 'rgba(255, 67, 112, 0.25)' : 'transparent',
-                        color: brushSize === size ? '#fff' : 'rgba(255, 255, 255, 0.7)',
-                        fontSize: '11.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                    style={{
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      background: canUndo ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                      color: canUndo ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: canUndo ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    ↩️ 되돌리기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleResetBlur}
-                    style={{
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      color: 'rgba(255, 255, 255, 0.8)',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🔄 초기화
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Canvas Area */}
-        <div
-          ref={containerRef}
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '12px 14px',
-            background: 'radial-gradient(circle at center, rgba(30, 34, 48, 0.8) 0%, rgba(10, 12, 18, 0.95) 100%)',
-            overflow: 'hidden',
-            touchAction: 'none',
-            userSelect: 'none',
-          }}
-        >
-          {/* Guide hint above canvas in blur mode */}
-          {mode === 'blur' && (
-            <div
-              style={{
-                fontSize: '11.5px',
-                color: '#fca5a5',
-                marginBottom: '8px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: 'rgba(239, 68, 68, 0.16)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                padding: '4px 10px',
-                borderRadius: '8px',
-                flexShrink: 0,
-              }}
-            >
-              <span>👆</span> 얼굴/이목구비 부위를 마우스나 손가락으로 쓱 문질러 가려주세요
-            </div>
-          )}
-
-          <div
-            style={{
-              position: 'relative',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              cursor: mode === 'blur' ? 'crosshair' : 'default',
-              display: 'inline-block',
-              lineHeight: 0,
-              width: '100%',
-              maxWidth: '480px',
-            }}
-            onMouseDown={handlePointerDown}
-            onMouseMove={handlePointerMove}
-            onMouseUp={handlePointerUp}
-            onMouseLeave={(e) => {
-              if ('buttons' in e && e.buttons === 0) {
-                dragActionRef.current = null;
-              }
-            }}
-            onTouchStart={handlePointerDown}
-            onTouchMove={handlePointerMove}
-            onTouchEnd={handlePointerUp}
-          >
-            <canvas
-              ref={canvasRef}
-              style={{
-                display: 'block',
-                width: '100%',
-                height: 'auto',
-              }}
-            />
-
-            {/* Crop Overlay (Only visible in Crop Mode) */}
-            {mode === 'crop' && canvasRef.current && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  pointerEvents: 'none',
-                }}
-              >
-                {(() => {
-                  const cw = canvasRef.current.width || 1;
-                  const ch = canvasRef.current.height || 1;
-                  const pX = (cropRect.x / cw) * 100;
-                  const pY = (cropRect.y / ch) * 100;
-                  const pW = (cropRect.width / cw) * 100;
-                  const pH = (cropRect.height / ch) * 100;
-
-                  return (
-                    <>
-                      {/* Darkened mask outside crop box */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: `${pY}%`,
-                          background: 'rgba(0, 0, 0, 0.55)',
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: `${pY + pH}%`,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          background: 'rgba(0, 0, 0, 0.55)',
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: `${pY}%`,
-                          left: 0,
-                          width: `${pX}%`,
-                          height: `${pH}%`,
-                          background: 'rgba(0, 0, 0, 0.55)',
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: `${pY}%`,
-                          left: `${pX + pW}%`,
-                          right: 0,
-                          height: `${pH}%`,
-                          background: 'rgba(0, 0, 0, 0.55)',
-                        }}
-                      />
-
-                      {/* The Crop Box Frame */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: `${pX}%`,
-                          top: `${pY}%`,
-                          width: `${pW}%`,
-                          height: `${pH}%`,
-                          border: '2px solid #ff4370',
-                          boxShadow: '0 0 12px rgba(255, 67, 112, 0.5)',
-                          pointerEvents: 'auto',
-                          cursor: 'move',
-                        }}
-                      >
-                        {/* Rule of thirds grid lines */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '33.3%',
-                            top: 0,
-                            bottom: 0,
-                            width: '1px',
-                            background: 'rgba(255, 255, 255, 0.25)',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: '66.6%',
-                            top: 0,
-                            bottom: 0,
-                            width: '1px',
-                            background: 'rgba(255, 255, 255, 0.25)',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '33.3%',
-                            left: 0,
-                            right: 0,
-                            height: '1px',
-                            background: 'rgba(255, 255, 255, 0.25)',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '66.6%',
-                            left: 0,
-                            right: 0,
-                            height: '1px',
-                            background: 'rgba(255, 255, 255, 0.25)',
-                          }}
-                        />
-
-                        {/* Corner Handles */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '-6px',
-                            left: '-6px',
-                            width: '14px',
-                            height: '14px',
-                            background: '#fff',
-                            border: '2px solid #ff4370',
-                            borderRadius: '3px',
-                            cursor: 'nwse-resize',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '-6px',
-                            right: '-6px',
-                            width: '14px',
-                            height: '14px',
-                            background: '#fff',
-                            border: '2px solid #ff4370',
-                            borderRadius: '3px',
-                            cursor: 'nesw-resize',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            bottom: '-6px',
-                            left: '-6px',
-                            width: '14px',
-                            height: '14px',
-                            background: '#fff',
-                            border: '2px solid #ff4370',
-                            borderRadius: '3px',
-                            cursor: 'nesw-resize',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            bottom: '-6px',
-                            right: '-6px',
-                            width: '14px',
-                            height: '14px',
-                            background: '#fff',
-                            border: '2px solid #ff4370',
-                            borderRadius: '3px',
-                            cursor: 'nwse-resize',
-                          }}
-                        />
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Actions (Sticky Bottom) */}
-      <div
-        style={{
-          padding: '14px 18px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '8px',
-          background: 'rgba(15, 17, 24, 0.98)',
-          backdropFilter: 'blur(10px)',
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 30,
-          borderBottomLeftRadius: '20px',
-          borderBottomRightRadius: '20px',
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleSkipClick}
-          style={{
-            padding: '9px 12px',
-            borderRadius: '10px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: 'rgba(255, 255, 255, 0.65)',
-            fontSize: '11.5px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-          title="얼굴이 없는 풍경/사물 사진인 경우에만 사용"
-        >
-          원본 등록 (풍경/사물만)
-        </button>
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              padding: '9px 14px',
-              borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              color: '#fff',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" className="btn btn--ghost" onClick={onCancel}>
             취소
           </button>
-
-          <button
-            type="button"
-            onClick={handleDone}
-            disabled={isProcessing}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #ff4370 0%, #ff6b8b 100%)',
-              border: 'none',
-              color: '#fff',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: isProcessing ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 15px rgba(255, 67, 112, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            {isProcessing ? '처리 중...' : '✅ 편집 완료 및 등록'}
+          <button type="button" className="btn btn--primary" onClick={handleDone} disabled={isProcessing}>
+            {isProcessing ? '처리하는 중' : '편집 완료'}
           </button>
         </div>
       </div>
     </div>
-  </div>
   );
 
   return createPortal(modalContent, document.body);

@@ -1,969 +1,248 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
-import { OrbitEvent } from '@/types/event';
+import type { OrbitEvent } from '@/types/event';
+import { formatCapacity, parseCapacity } from '@/lib/eventCapacity';
+import { STATUS_CLASS, STATUS_LABEL } from '@/lib/eventLabels';
+import EventPlate from '@/components/EventPlate';
+import { Field, Icon } from '@/components/ui';
 
 interface Props {
   onShowToast: (msg: string) => void;
-  onSwitchToOpenManage?: () => void;
+  onSwitchToOpenManage: () => void;
 }
+
+type Draft = Partial<OrbitEvent> & { slug: string };
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }: Props) {
   const [events, setEvents] = useState<OrbitEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSlug, setSelectedSlug] = useState<string>('vol01');
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [isNew, setIsNew] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Edit form state
-  const [formData, setFormData] = useState<Partial<OrbitEvent>>({
-    volNumber: 'VOL.01',
-    slug: 'vol01',
-    title: '',
-    subtitle: '',
-    status: 'upcoming',
-    imageUrl: '',
-    dDayText: 'PREVIEW · D-DAY EVENT',
-    badgeText: 'ORBIT EXCLUSIVE',
-    date: '',
-    location: '',
-    capacity: '',
-    content: '',
-  });
+  const fetchEvents = useCallback(
+    (keepSlug?: string) =>
+      fetch('/api/admin/events', { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          const list: OrbitEvent[] = data.events || [];
+          setEvents(list);
+          setDraft(list.find((e) => e.slug === keepSlug) || list[0] || null);
+          setIsNew(false);
+        })
+        .catch(() => onShowToast('이벤트 목록을 불러오지 못했어요.'))
+        .finally(() => setIsLoading(false)),
+    [onShowToast]
+  );
 
-  // Load events
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    void fetchEvents();
+  }, [fetchEvents]);
 
-  const fetchEvents = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/admin/events', { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.events)) {
-        setEvents(data.events);
-        if (data.events.length > 0) {
-          const current = data.events.find((e: OrbitEvent) => e.slug === selectedSlug) || data.events[0];
-          setSelectedSlug(current.slug);
-          setFormData(current);
-        }
-      }
-    } catch (e) {
-      onShowToast('이벤트 목록을 불러오지 못했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const set = (fields: Partial<OrbitEvent>) => setDraft((d) => (d ? { ...d, ...fields } : d));
+  const capacity = parseCapacity(draft?.capacity);
+  const saved = events.find((e) => e.slug === draft?.slug);
 
-  const handleSelectEvent = (event: OrbitEvent) => {
-    setSelectedSlug(event.slug);
-    setFormData(event);
-  };
-
-  const handleAddNewEvent = () => {
-    const nextNum = events.length + 1;
-    const nextVol = `VOL.${String(nextNum).padStart(2, '0')}`;
-    const nextSlug = `vol${String(nextNum).padStart(2, '0')}`;
-
-    const newEv: Partial<OrbitEvent> = {
-      volNumber: nextVol,
-      slug: nextSlug,
-      title: `새로운 ${nextVol} 이벤트`,
-      subtitle: '이벤트 라인업 준비 중',
+  const addEvent = () => {
+    const n = String(events.length + 1).padStart(2, '0');
+    setDraft({
+      volNumber: `VOL.${n}`,
+      slug: `vol${n}`,
+      title: `VOL.${n} 이벤트`,
+      subtitle: '',
       status: 'upcoming',
       imageUrl: '',
-      dDayText: 'COMING SOON',
-      badgeText: 'ORBIT SPECIAL',
-      date: '추후 안내',
-      location: '선정 회원 개별 안내',
-      capacity: '선착순 모집',
-      content: `${nextVol} 이벤트의 상세 내용을 작성해주세요.`,
-    };
-
-    setSelectedSlug(nextSlug);
-    setFormData(newEv);
-    onShowToast(`새 ${nextVol} 이벤트 편집 모드가 열렸습니다.`);
+      date: '',
+      location: '',
+      capacity: '',
+      content: '',
+    });
+    setIsNew(true);
   };
 
-  // Upload image handler
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadImage = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('이미지 파일(JPG, PNG, WebP)만 업로드할 수 있습니다.');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('이미지 크기는 최대 10MB까지 가능합니다.');
-      return;
-    }
+    e.target.value = '';
+    if (!file || !draft) return;
+    if (!file.type.startsWith('image/')) return onShowToast('JPG, PNG, WebP 이미지만 올릴 수 있어요.');
+    if (file.size > MAX_IMAGE_BYTES) return onShowToast('이미지는 10MB까지 올릴 수 있어요.');
 
     setIsUploading(true);
     try {
-      const formPayload = new FormData();
-      formPayload.append('files', file);
-      formPayload.append('phone', `event_${formData.slug || 'vol'}`);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formPayload,
-      });
-
-      const data = await res.json();
-      if (data.success && data.urls && data.urls.length > 0) {
-        setFormData((prev) => ({ ...prev, imageUrl: data.urls[0] }));
-        onShowToast('이벤트 이미지가 업로드되었습니다! (카드에 즉시 반영)');
-      } else {
-        // Fallback to Base64 data URL if storage upload failed
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
-          onShowToast('이벤트 이미지가 적용되었습니다! (로컬 프리뷰)');
-        };
-        reader.readAsDataURL(file);
-      }
+      const form = new FormData();
+      form.append('files', file);
+      form.append('phone', `event_${draft.slug}`);
+      const data = await (await fetch('/api/upload', { method: 'POST', body: form })).json();
+      if (!data.success || !data.urls?.length) throw new Error(data.error);
+      set({ imageUrl: data.urls[0] });
+      onShowToast('포스터를 올렸어요. 저장하면 반영돼요.');
     } catch (err) {
-      // Fallback to FileReader
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, imageUrl: reader.result as string }));
-        onShowToast('이벤트 이미지가 적용되었습니다.');
-      };
-      reader.readAsDataURL(file);
+      onShowToast(err instanceof Error && err.message ? err.message : '포스터를 올리지 못했어요.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleClearImage = () => {
-    setFormData((prev) => ({ ...prev, imageUrl: '' }));
-    onShowToast('이미지가 제거되어 기본 3D 물음표 에셋으로 복원되었습니다.');
-  };
-
-  // Save Event
-  const handleSaveEvent = async (e: React.FormEvent) => {
+  const save = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.slug || !formData.volNumber || !formData.title) {
-      alert('볼륨 번호, 슬러그(예: vol01), 이벤트 제목은 필수입니다.');
-      return;
-    }
-
+    if (!draft?.slug || !draft.volNumber || !draft.title) return onShowToast('회차, 주소, 제목은 꼭 입력해야 해요.');
     setIsSaving(true);
     try {
-      // Keep existing event status from server so card edits never overwrite open/end status
-      const existingEvent = events.find((e) => e.slug === formData.slug);
-      const payload = {
-        ...formData,
-        status: existingEvent ? existingEvent.status : formData.status || 'upcoming',
-      };
-
-      const res = await fetch('/api/admin/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onShowToast(`✓ ${formData.volNumber} 이벤트 카드 정보가 성공적으로 저장되었습니다!`);
-        await fetchEvents();
-      } else {
-        alert(data.error || '이벤트 저장 중 오류가 발생했습니다.');
-      }
-    } catch (err: any) {
-      alert('네트워크 오류로 저장하지 못했습니다.');
+      // Open/end status belongs to the open-management tab; never overwrite it from here.
+      const payload = { ...draft, status: saved?.status || draft.status || 'upcoming' };
+      const data = await (
+        await fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      ).json();
+      if (!data.success) throw new Error(data.error);
+      onShowToast(`${draft.volNumber} 이벤트를 저장했어요.`);
+      await fetchEvents(draft.slug);
+    } catch (err) {
+      onShowToast(err instanceof Error && err.message ? err.message : '저장하지 못했어요.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Delete Event
-  const handleDeleteEvent = async (slug: string) => {
-    if (!confirm(`${slug.toUpperCase()} 이벤트를 정말 삭제하시겠습니까?`)) return;
-
+  const remove = async () => {
+    if (!draft || !confirm(`${draft.volNumber} 이벤트를 삭제할까요? 되돌릴 수 없어요.`)) return;
     try {
-      const res = await fetch(`/api/admin/events?slug=${slug}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onShowToast(`${slug.toUpperCase()} 이벤트가 삭제되었습니다.`);
-        await fetchEvents();
-      } else {
-        alert(data.error || '삭제 실패');
-      }
+      const data = await (await fetch(`/api/admin/events?slug=${encodeURIComponent(draft.slug)}`, { method: 'DELETE' })).json();
+      if (!data.success) throw new Error(data.error);
+      onShowToast(`${draft.volNumber} 이벤트를 삭제했어요.`);
+      await fetchEvents();
     } catch (err) {
-      alert('삭제 중 오류 발생');
+      onShowToast(err instanceof Error && err.message ? err.message : '삭제하지 못했어요.');
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Banner */}
-      <div
-        style={{
-          background: 'rgba(30, 41, 59, 0.4)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '16px',
-          padding: '20px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🎟️</span> 이벤트 카드 관리 (이미지 & 텍스트 설정)
-          </h2>
-          <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-            카드에 들어갈 포스터 이미지를 등록하고 제목·서브타이틀 등 텍스트를 편집합니다. (※ 실제 오픈/종료 결정은 <strong style={{ color: '#34d399' }}>[🚀 이벤트 오픈 및 관리]</strong> 탭에서 제어합니다)
-          </p>
+    <div className="editor">
+      <aside className="stack">
+        <div className="row row--between">
+          <h2 className="label">이벤트 {events.length}개</h2>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={addEvent}>
+            <Icon name="plus" /> 새 이벤트
+          </button>
         </div>
+        {isLoading && <p className="muted small">불러오는 중</p>}
+        {events.map((ev) => (
+          <button key={ev.slug} type="button" className="event-row" aria-pressed={!isNew && ev.slug === draft?.slug}
+            onClick={() => { setDraft(ev); setIsNew(false); }}>
+            <span className="event-row__thumb">
+              <img src={ev.imageUrl || '/images/crystal_question_mark.png'} alt="" style={ev.imageUrl ? undefined : { width: 26, height: 'auto' }} />
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span className="row">
+                <strong>{ev.volNumber}</strong>
+                <span className={`status-dot ${STATUS_CLASS[ev.status]}`}>{STATUS_LABEL[ev.status]}</span>
+              </span>
+              <span className="small muted" style={{ display: 'block' }}>{ev.title}</span>
+            </span>
+          </button>
+        ))}
+      </aside>
 
-        <button
-          type="button"
-          onClick={handleAddNewEvent}
-          style={{
-            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '10px',
-            padding: '10px 18px',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
-          }}
-        >
-          <span>➕</span> 새 이벤트 추가 (VOL.XX)
-        </button>
-      </div>
-
-      {/* Main Two-Column Workspace */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '24px',
-          alignItems: 'start',
-        }}
-      >
-        {/* Left Column: Event List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>📂</span> 등록된 이벤트 목록 ({events.length}개)
+      {draft && (
+        <form className="stack stack--lg" onSubmit={save}>
+          <div className="row row--between row--wrap">
+            <h2 className="title">{isNew ? '새 이벤트' : `${draft.volNumber} 편집`}</h2>
+            {!isNew && (
+              <Link href={`/events/${draft.slug}`} target="_blank" className="btn btn--quiet btn--sm">
+                <Icon name="external" /> 페이지 열기
+              </Link>
+            )}
           </div>
 
-          {isLoading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-              이벤트 로딩 중...
-            </div>
-          ) : events.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-              등록된 이벤트가 없습니다. &apos;새 이벤트 추가&apos;를 눌러주세요.
-            </div>
-          ) : (
-            events.map((ev) => {
-              const isSelected = ev.slug === selectedSlug;
-              return (
-                <div
-                  key={ev.id || ev.slug}
-                  onClick={() => handleSelectEvent(ev)}
-                  style={{
-                    background: isSelected ? 'rgba(30, 41, 59, 0.85)' : 'rgba(20, 26, 43, 0.5)',
-                    border: isSelected ? '1.5px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '16px',
-                    padding: '16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    boxShadow: isSelected ? '0 8px 25px rgba(239, 68, 68, 0.2)' : 'none',
-                  }}
-                >
-                  {/* Thumbnail / Question mark icon */}
-                  <div
-                    style={{
-                      width: '54px',
-                      height: '70px',
-                      borderRadius: '8px',
-                      background: '#09090b',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {ev.imageUrl ? (
-                      <img src={ev.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <img src="/images/crystal_question_mark.png" alt="?" style={{ width: '28px', height: 'auto' }} />
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          color: '#ef4444',
-                          letterSpacing: '1px',
-                        }}
-                      >
-                        {ev.volNumber}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '2px 6px',
-                          borderRadius: '999px',
-                          background:
-                            ev.status === 'ongoing'
-                              ? 'rgba(56, 189, 248, 0.2)'
-                              : ev.status === 'ended'
-                              ? 'rgba(148, 163, 184, 0.2)'
-                              : 'rgba(52, 211, 153, 0.2)',
-                          color:
-                            ev.status === 'ongoing'
-                              ? '#38bdf8'
-                              : ev.status === 'ended'
-                              ? '#94a3b8'
-                              : '#34d399',
-                        }}
-                      >
-                        {ev.status === 'ongoing' ? '진행중' : ev.status === 'ended' ? '종료' : '오픈 예정'}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#f8fafc',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {ev.title}
-                    </div>
-
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                      링크: <span style={{ color: '#94a3b8' }}>/events/{ev.slug}</span>
-                    </div>
-                  </div>
-
-                  {/* Open Link */}
-                  <Link
-                    href={`/events/${ev.slug}`}
-                    target="_blank"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#cbd5e1',
-                      borderRadius: '8px',
-                      padding: '8px 10px',
-                      fontSize: '12px',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      flexShrink: 0,
-                    }}
-                    title="새 탭에서 페이지 열기"
-                  >
-                    <span>↗</span> 열기
-                  </Link>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Right Column: Editor & Live Card Preview */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Card Live Preview Box */}
-          <div
-            style={{
-              background: 'rgba(20, 26, 43, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '20px',
-              padding: '24px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>👁️</span> 카드 실시간 렌더링 미리보기
+          <div className="grid-2" style={{ alignItems: 'start' }}>
+            <div className="stack">
+              <EventPlate event={{ status: draft.status || 'upcoming', volNumber: draft.volNumber || '', title: draft.title || '', imageUrl: draft.imageUrl }} />
+              <p className="hint">사용자에게 보이는 카드 미리보기예요.</p>
             </div>
 
-            {/* Exact Miniature of Main Event Card */}
-            <div
-              style={{
-                position: 'relative',
-                width: '260px',
-                height: '340px',
-                borderRadius: '18px',
-                background: 'linear-gradient(165deg, #18181b 0%, #0c0a09 45%, #000000 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                boxShadow: '0 20px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(239, 68, 68, 0.25)',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                padding: '14px 12px',
-                boxSizing: 'border-box',
-              }}
-            >
-              {/* Background Image if uploaded */}
-              {formData.imageUrl && (
-                <>
-                  <img
-                    src={formData.imageUrl}
-                    alt=""
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      zIndex: 0,
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.85) 100%)',
-                      zIndex: 1,
-                    }}
-                  />
-                </>
-              )}
-
-              {/* Top Serial & Dots (In Red) */}
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingBottom: '6px',
-                  borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
-                  zIndex: 2,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 800,
-                    color: '#ef4444',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  ORBIT EVENT · {formData.volNumber || 'VOL.01'}
-                </span>
-                <div style={{ display: 'flex', gap: '3px' }}>
-                  <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: '#ef4444' }} />
-                  <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.65)' }} />
-                  <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.35)' }} />
-                </div>
-              </div>
-
-              {/* Center Content: Question mark or image badge */}
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: 'auto 0',
-                  zIndex: 2,
-                }}
-              >
-                {!formData.imageUrl ? (
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, transparent 70%)',
-                        filter: 'blur(14px)',
-                      }}
-                    />
-                    <img
-                      src="/images/crystal_question_mark.png"
-                      alt="?"
-                      style={{
-                        position: 'relative',
-                        width: '74px',
-                        height: 'auto',
-                        filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.8)) drop-shadow(0 0 16px rgba(56,189,248,0.7))',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.6)',
-                      border: '1px solid rgba(239, 68, 68, 0.5)',
-                      padding: '4px 10px',
-                      borderRadius: '999px',
-                      color: '#ef4444',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                    }}
-                  >
-                    등록된 포스터 이미지 적용됨
-                  </div>
-                )}
-              </div>
-
-              {/* Sleeve Mockup Overlay */}
-              <div
-                style={{
-                  position: 'relative',
-                  background: 'rgba(255, 255, 255, 0.12)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderTop: '2px solid rgba(255, 255, 255, 0.5)',
-                  borderRadius: '12px',
-                  padding: '10px 8px',
-                  textAlign: 'center',
-                  zIndex: 3,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 900,
-                    color: formData.status === 'ongoing' ? '#34d399' : formData.status === 'ended' ? '#94a3b8' : '#ef4444',
-                    letterSpacing: '3px',
-                    textTransform: 'uppercase',
-                    fontFamily: '"Outfit", sans-serif',
-                  }}
-                >
-                  {formData.status === 'ongoing'
-                    ? 'NOW OPEN'
-                    : formData.status === 'ended'
-                    ? `${(formData.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END`
-                    : 'comming soon'}
-                </div>
-                <div
-                  style={{
-                    fontSize: '10.5px',
-                    color: formData.status === 'ongoing' ? '#a7f3d0' : formData.status === 'ended' ? '#cbd5e1' : '#f87171',
-                    marginTop: '4px',
-                    fontWeight: 600,
-                  }}
-                >
-                  {formData.title || '비밀 인연 매칭 프로젝트'}
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', textAlign: 'center' }}>
-              {formData.imageUrl
-                ? '✓ 포스터 이미지가 배경에 들어가며, 텍스트가 이미지 위에 선명하게 렌더링됩니다.'
-                : '✓ 이미지가 없을 때는 현재 3D 크리스탈 물음표 에셋이 자동으로 유지됩니다.'}
-            </p>
-          </div>
-
-          {/* Edit Form */}
-          <form
-            onSubmit={handleSaveEvent}
-            style={{
-              background: 'rgba(30, 41, 59, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '20px',
-              padding: '24px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-            }}
-          >
-            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f8fafc', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
-              ✏️ {formData.volNumber} 이벤트 정보 설정
-            </div>
-
-            {/* Image Upload Box */}
-            <div
-              style={{
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px dashed rgba(239, 68, 68, 0.4)',
-                borderRadius: '14px',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
-            >
-              <label style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🖼️</span> 카드 포스터 이미지 등록 (최대 10MB)
-              </label>
-
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleImageFileChange}
-                  disabled={isUploading}
-                  style={{
-                    fontSize: '12px',
-                    color: '#cbd5e1',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                  }}
-                />
-
-                {isUploading && <span style={{ fontSize: '12px', color: '#38bdf8' }}>업로드 중...</span>}
-
-                {formData.imageUrl && (
-                  <button
-                    type="button"
-                    onClick={handleClearImage}
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#f87171',
-                      padding: '7px 12px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    물음표 에셋으로 복원
-                  </button>
-                )}
-              </div>
-
-              {formData.imageUrl && (
-                <div style={{ fontSize: '11px', color: '#94a3b8', wordBreak: 'break-all' }}>
-                  현재 이미지 URL: <span style={{ color: '#60a5fa' }}>{formData.imageUrl.substring(0, 60)}...</span>
-                </div>
-              )}
-            </div>
-
-            {/* Volume & Slug Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  볼륨 번호
-                </label>
-                <input
-                  type="text"
-                  value={formData.volNumber || ''}
-                  onChange={(e) => setFormData({ ...formData, volNumber: e.target.value })}
-                  placeholder="예: VOL.01"
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  페이지 URL 슬러그 (/events/...)
-                </label>
-                <input
-                  type="text"
-                  value={formData.slug || ''}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
-                  placeholder="예: vol01"
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Title & Subtitle */}
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                이벤트 제목
-              </label>
-              <input
-                type="text"
-                value={formData.title || ''}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="예: 비밀 인연 매칭 프로젝트"
-                required
-                style={{
-                  width: '100%',
-                  background: 'rgba(15, 23, 42, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#f8fafc',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                서브 타이틀 (간략한 설명)
-              </label>
-              <input
-                type="text"
-                value={formData.subtitle || ''}
-                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                placeholder="예: 곧 첫 번째 이벤트가 공개됩니다"
-                style={{
-                  width: '100%',
-                  background: 'rgba(15, 23, 42, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#f8fafc',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            {/* Status (Read-Only) & Ribbon Text */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>이벤트 상태 (읽기 전용)</span>
-                  {onSwitchToOpenManage && (
-                    <button
-                      type="button"
-                      onClick={onSwitchToOpenManage}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#38bdf8',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        padding: 0,
-                        textDecoration: 'underline',
-                      }}
-                    >
-                      🚀 오픈/종료 설정 탭으로 이동 →
-                    </button>
-                  )}
-                </label>
-                <div
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.85)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-                    {formData.status === 'ongoing' ? (
-                      <span style={{ color: '#34d399' }}>🟢 진행중 (NOW OPEN)</span>
-                    ) : formData.status === 'ended' ? (
-                      <span style={{ color: '#94a3b8' }}>🏁 종료 ({((formData.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END)</span>
-                    ) : (
-                      <span style={{ color: '#fbbf24' }}>⏳ 오픈 예정 (Coming Soon)</span>
-                    )}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      color: 'rgba(255, 255, 255, 0.45)',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    오픈관리 탭에서 변경
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  하단 리본 문구
-                </label>
-                <input
-                  type="text"
-                  value={formData.dDayText || ''}
-                  onChange={(e) => setFormData({ ...formData, dDayText: e.target.value })}
-                  placeholder="예: PREVIEW · D-DAY EVENT"
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Date, Location, Capacity */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  일시 / 오픈 일정
-                </label>
-                <input
-                  type="text"
-                  value={formData.date || ''}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  placeholder="예: 2026.11.01 (토) 18:00"
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                  장소 및 방식
-                </label>
-                <input
-                  type="text"
-                  value={formData.location || ''}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="예: 서울 강남 시크릿 라운지"
-                  style={{
-                    width: '100%',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#f8fafc',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Description / Content for Event Detail Page */}
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px', display: 'block' }}>
-                이벤트 상세 페이지 내용
-              </label>
-              <textarea
-                rows={4}
-                value={formData.content || formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value, description: e.target.value })}
-                placeholder="이벤트의 상세 소개, 참가 조건, 진행 방식 등을 입력하세요."
-                style={{
-                  width: '100%',
-                  background: 'rgba(15, 23, 42, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#f8fafc',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  lineHeight: 1.6,
-                  boxSizing: 'border-box',
-                  resize: 'vertical',
-                }}
-              />
-            </div>
-
-            {/* Buttons */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button
-                type="submit"
-                disabled={isSaving}
-                style={{
-                  flex: 1,
-                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: isSaving ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 16px rgba(2, 132, 199, 0.4)',
-                }}
-              >
-                {isSaving ? '저장 중...' : `💾 ${formData.volNumber} 이벤트 카드 및 상세페이지 저장하기`}
-              </button>
-
-              {events.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteEvent(formData.slug || '')}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#f87171',
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  삭제
+            <div className="stack">
+              <Field label="포스터 이미지" htmlFor="poster" hint="10MB 이하 JPG, PNG, WebP. 없으면 물음표 카드가 보여요.">
+                <input id="poster" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadImage} disabled={isUploading} className="small" />
+              </Field>
+              {isUploading && <p className="small muted">올리는 중</p>}
+              {draft.imageUrl && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => set({ imageUrl: '' })}>
+                  포스터 지우기
                 </button>
               )}
+              <div className="panel stack small">
+                <span className="muted">공개 상태</span>
+                <span className={`status-dot ${STATUS_CLASS[draft.status || 'upcoming']}`}>{STATUS_LABEL[draft.status || 'upcoming']}</span>
+                <button type="button" className="link-btn" style={{ textAlign: 'left' }} onClick={onSwitchToOpenManage}>
+                  오픈·종료는 오픈·신청자 탭에서 바꿔요
+                </button>
+              </div>
             </div>
-          </form>
-        </div>
-      </div>
+          </div>
+
+          <div className="grid-2">
+            <Field label="회차" htmlFor="ev-vol" required>
+              <input id="ev-vol" className="input" placeholder="VOL.01" value={draft.volNumber || ''} onChange={(e) => set({ volNumber: e.target.value })} />
+            </Field>
+            <Field label="페이지 주소" htmlFor="ev-slug" required hint={`/events/${draft.slug || '...'}`}>
+              <input id="ev-slug" className="input" placeholder="vol01" value={draft.slug} disabled={!isNew}
+                onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })} />
+            </Field>
+          </div>
+
+          <Field label="제목" htmlFor="ev-title" required>
+            <input id="ev-title" className="input" value={draft.title || ''} onChange={(e) => set({ title: e.target.value })} />
+          </Field>
+          <Field label="부제" htmlFor="ev-subtitle" optional>
+            <input id="ev-subtitle" className="input" value={draft.subtitle || ''} onChange={(e) => set({ subtitle: e.target.value })} />
+          </Field>
+
+          <div className="grid-2">
+            <Field label="일시" htmlFor="ev-date">
+              <input id="ev-date" className="input" placeholder="2026.11.01 (토) 18:00" value={draft.date || ''} onChange={(e) => set({ date: e.target.value })} />
+            </Field>
+            <Field label="장소" htmlFor="ev-location">
+              <input id="ev-location" className="input" placeholder="서울 강남" value={draft.location || ''} onChange={(e) => set({ location: e.target.value })} />
+            </Field>
+          </div>
+
+          <div className="grid-2">
+            {(['male', 'female'] as const).map((g) => (
+              <Field key={g} label={`모집 인원 (${g === 'male' ? '남' : '여'})`} htmlFor={`ev-cap-${g}`} hint="비우면 '추후 안내'로 보여요.">
+                <div className="affix">
+                  <input id={`ev-cap-${g}`} className="input" type="number" min={0} inputMode="numeric" placeholder="15"
+                    value={capacity[g] ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value)));
+                      set({ capacity: formatCapacity({ ...capacity, [g]: value }) });
+                    }} />
+                  <span className="affix__text">명</span>
+                </div>
+              </Field>
+            ))}
+          </div>
+
+          <Field label="상세 안내" htmlFor="ev-content" hint="이벤트 페이지 본문과 목록 소개에 함께 쓰여요.">
+            <textarea id="ev-content" className="textarea" rows={6} value={draft.content || draft.description || ''}
+              onChange={(e) => set({ content: e.target.value, description: e.target.value })} />
+          </Field>
+
+          <div className="row">
+            <button type="submit" className="btn btn--primary" style={{ flex: 1 }} disabled={isSaving}>
+              {isSaving ? '저장하는 중' : `${draft.volNumber || '이벤트'} 저장`}
+            </button>
+            {!isNew && events.length > 1 && (
+              <button type="button" className="btn btn--danger" onClick={remove}>
+                <Icon name="trash" /> 삭제
+              </button>
+            )}
+          </div>
+        </form>
+      )}
     </div>
   );
 }

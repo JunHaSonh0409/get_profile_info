@@ -16,13 +16,6 @@ export interface ProfileData {
   created_at?: string;
 }
 
-export const MBTI_OPTIONS = [
-  'INTJ', 'INTP', 'ENTJ', 'ENTP',
-  'INFJ', 'INFP', 'ENFJ', 'ENFP',
-  'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ',
-  'ISTP', 'ISFP', 'ESTP', 'ESFP',
-] as const;
-
 export interface AnimalOption {
   id: string;
   label: string;

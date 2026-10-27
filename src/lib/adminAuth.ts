@@ -1,8 +1,6 @@
-import crypto from 'crypto';
+import { readCookie, readEnv, signSessionToken, timingSafeCompare, verifySessionToken } from '@/lib/sessionToken';
 
 // No fallbacks: when a variable is missing, auth fails closed.
-const readEnv = (name: string) => (process.env[name] || '').replace(/^["']|["']$/g, '').trim();
-
 export function isAdminAuthConfigured(): boolean {
   return Boolean(readEnv('ADMIN_USERNAME') && readEnv('ADMIN_PASSWORD') && readEnv('ADMIN_SECRET_KEY'));
 }
@@ -61,12 +59,6 @@ export function resetRateLimit(ip: string): void {
   rateLimitStore.delete(ip);
 }
 
-/** Constant-time comparison via fixed-length SHA-256 digests. */
-function timingSafeCompare(a: string, b: string): boolean {
-  const hash = (s: string) => crypto.createHash('sha256').update(s, 'utf8').digest();
-  return crypto.timingSafeEqual(hash(a), hash(b));
-}
-
 export function verifyAdminCredentials(user: string, pass: string): boolean {
   if (!isAdminAuthConfigured()) return false;
   // Evaluate both so timing does not reveal which one failed.
@@ -75,47 +67,17 @@ export function verifyAdminCredentials(user: string, pass: string): boolean {
   return userOk && passOk;
 }
 
-const sign = (payloadB64: string, secret: string) =>
-  crypto.createHmac('sha256', secret).update(payloadB64).digest('base64url');
-
 /** HMAC-SHA256 signed session token: base64url(payload).signature */
 export function createAdminSessionToken(username: string): string {
   const secret = readEnv('ADMIN_SECRET_KEY');
   if (!secret) throw new Error('ADMIN_SECRET_KEY is not configured');
-
-  const now = Date.now();
-  const payload = {
-    sub: username,
-    role: 'super_admin',
-    iat: now,
-    exp: now + SESSION_DURATION_SECONDS * 1000,
-    nonce: crypto.randomBytes(16).toString('hex'),
-  };
-  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${payloadB64}.${sign(payloadB64, secret)}`;
-}
-
-function verifyAdminSessionToken(token: string): string | null {
-  const secret = readEnv('ADMIN_SECRET_KEY');
-  const [payloadB64, signature, extra] = token.split('.');
-  if (!secret || !payloadB64 || !signature || extra !== undefined) return null;
-  if (!timingSafeCompare(signature, sign(payloadB64, secret))) return null;
-
-  try {
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
-    return Date.now() <= payload.exp && payload.role === 'super_admin' ? payload.sub : null;
-  } catch {
-    return null;
-  }
+  return signSessionToken({ sub: username, role: 'super_admin' }, secret, SESSION_DURATION_SECONDS);
 }
 
 export function getAdminSessionFromRequest(request: Request): { authenticated: boolean; username?: string } {
-  const token = (request.headers.get('cookie') || '')
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${ADMIN_COOKIE_NAME}=`))
-    ?.slice(ADMIN_COOKIE_NAME.length + 1);
-
-  const username = token ? verifyAdminSessionToken(token) : null;
-  return username ? { authenticated: true, username } : { authenticated: false };
+  const token = readCookie(request, ADMIN_COOKIE_NAME);
+  const payload = token ? verifySessionToken(token, readEnv('ADMIN_SECRET_KEY')) : null;
+  return payload?.role === 'super_admin' && typeof payload.sub === 'string'
+    ? { authenticated: true, username: payload.sub }
+    : { authenticated: false };
 }

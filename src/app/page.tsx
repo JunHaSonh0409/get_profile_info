@@ -24,6 +24,7 @@ import {
 } from '@/components/onboarding';
 
 const TOTAL_STEPS = STEP_TITLES.length;
+// UI hint only (prefills the event apply form); the session itself is an HttpOnly cookie.
 const SESSION_KEY = 'orbit_auth_phone';
 const DRAFT_KEY = 'profile_form_draft';
 
@@ -93,24 +94,18 @@ export default function ProfilePage() {
     setViewMode('REGISTER');
   };
 
-  // Restore the session from the phone verified earlier on this device.
+  // Restore the session from the member cookie; 401 means not logged in.
   useEffect(() => {
-    const phone = localStorage.getItem(SESSION_KEY);
-    /* eslint-disable react-hooks/set-state-in-effect -- one-time read of browser storage on mount */
-    if (!phone) {
-      setViewMode('LOGIN');
-      return;
-    }
-    setAuthPhone(phone);
-    /* eslint-enable react-hooks/set-state-in-effect */
-    fetch(`/api/profile?phone=${phone}`)
+    fetch('/api/profile')
       .then((res) => res.json())
       .then((result) => {
+        if (!result.success || !result.phone) return setViewMode('LOGIN');
+        setAuthPhone(result.phone);
         if (result.exists && result.data) {
           setMemberProfile(result.data);
           setViewMode('MY_PROFILE');
         } else {
-          startRegistration(phone);
+          startRegistration(result.phone);
         }
       })
       .catch(() => setViewMode('LOGIN'));
@@ -135,6 +130,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
+    fetch('/api/member/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(DRAFT_KEY);
     setAuthPhone('');

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminSessionFromRequest } from '@/lib/adminAuth';
+import { getMemberPhone } from '@/lib/memberAuth';
 
 export const API_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -16,6 +17,13 @@ export function fail(error: string, status: number, extra: Record<string, unknow
 
 export function errorMessage(err: unknown, fallback = '서버 오류가 발생했습니다.') {
   return err instanceof Error ? err.message : fallback;
+}
+
+export const MEMBER_LOGIN_REQUIRED = '로그인이 필요합니다. 휴대폰 인증 후 다시 시도해주세요.';
+
+/** The verified phone from the member session, or a 401 response to return as-is. */
+export function requireMember(request: Request): string | NextResponse {
+  return getMemberPhone(request) ?? fail(MEMBER_LOGIN_REQUIRED, 401);
 }
 
 /** Returns a 401 response when the request has no valid admin session, otherwise null. */

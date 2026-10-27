@@ -42,7 +42,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     doneRef.current = true;
     setStatus({ type: 'success', text: '인증되었어요. 프로필을 확인하는 중이에요.' });
     try {
-      const data = await (await fetch(`/api/profile?phone=${verifiedPhone}`)).json();
+      const data = await (await fetch('/api/profile')).json();
       onLoginSuccess({ phone: verifiedPhone, profile: data.exists ? data.data : null });
     } catch {
       onLoginSuccess({ phone: verifiedPhone, profile: null });

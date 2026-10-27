@@ -1,0 +1,2 @@
+# graphify: skip installed Claude Code skills (third-party docs, not project code)
+.claude/

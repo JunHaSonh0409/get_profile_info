@@ -114,9 +114,9 @@
     "semantic_hash": ""
   },
   "src/app/events/[slug]/page.tsx": {
-    "mtime": 1793109136.3009193,
-    "seen": 1793109928.8679276,
-    "ast_hash": "d3a1a0c313180e5cd19484d219d3d478",
+    "mtime": 1793271286.0559237,
+    "seen": 1793271677.3206258,
+    "ast_hash": "020d9da82e483951a92d81298c9e1cc7",
     "semantic_hash": ""
   },
   "src/app/layout.tsx": {

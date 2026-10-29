@@ -1019,29 +1019,9 @@ a {
   border-radius: var(--r-sheet);
   overflow: hidden;
   border: 1px solid var(--orbit);
-  background:
-    radial-gradient(circle at 50% 42%, rgba(244, 201, 122, 0.12), transparent 55%),
-    linear-gradient(180deg, #121a44, #0b1026);
+  background: #000;
   text-decoration: none;
   color: var(--lunar);
-}
-
-.plate::before {
-  /* the orbit: an ellipse traced around the centrepiece */
-  content: '';
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 30%;
-  height: 26%;
-  border: 1px solid rgba(244, 201, 122, 0.28);
-  border-radius: 50%;
-  transform: rotate(-12deg);
-  pointer-events: none;
-}
-
-.plate--poster::before {
-  display: none;
 }
 
 .plate__poster {
@@ -1052,10 +1032,20 @@ a {
   object-fit: cover;
 }
 
+/* Unrevealed events: the pixel galaxy, kept crisp and dimmed so the card text stays readable. */
+.plate__poster--art {
+  image-rendering: pixelated;
+  filter: brightness(0.55) saturate(0.9);
+}
+
 .plate__shade {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(11, 16, 38, 0.55) 0%, transparent 30%, transparent 55%, rgba(11, 16, 38, 0.92) 100%);
+}
+
+.plate__shade--deep {
+  background: linear-gradient(180deg, rgba(5, 8, 22, 0.7) 0%, rgba(5, 8, 22, 0.25) 28%, rgba(5, 8, 22, 0.25) 50%, rgba(5, 8, 22, 0.95) 100%);
 }
 
 .plate__top {
@@ -1068,15 +1058,6 @@ a {
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-}
-
-.plate__crystal {
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  width: 46%;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.6));
 }
 
 .plate__foot {

@@ -20,7 +20,7 @@ const toLocalInput = (iso?: string | null) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
-import EventPlate from '@/components/EventPlate';
+import EventPlate, { UNREVEALED_ART } from '@/components/EventPlate';
 import { Field, Icon } from '@/components/ui';
 
 interface Props {
@@ -147,7 +147,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
           <button key={ev.slug} type="button" className="event-row" aria-pressed={!isNew && ev.slug === draft?.slug}
             onClick={() => { setDraft(ev); setIsNew(false); }}>
             <span className="event-row__thumb">
-              <img src={ev.imageUrl || '/images/crystal_question_mark.png'} alt="" style={ev.imageUrl ? undefined : { width: 26, height: 'auto' }} />
+              <img src={ev.imageUrl || UNREVEALED_ART} alt="" style={ev.imageUrl ? undefined : { filter: 'brightness(0.7)', imageRendering: 'pixelated' }} />
             </span>
             <span style={{ minWidth: 0 }}>
               <span className="row">
@@ -178,7 +178,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
             </div>
 
             <div className="stack">
-              <Field label="포스터 이미지" htmlFor="poster" hint="10MB 이하 JPG, PNG, WebP. 없으면 물음표 카드가 보여요.">
+              <Field label="포스터 이미지" htmlFor="poster" hint="10MB 이하 JPG, PNG, WebP. 없으면 은하 배경 카드가 보여요.">
                 <input id="poster" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadImage} disabled={isUploading} className="small" />
               </Field>
               {isUploading && <p className="small muted">올리는 중</p>}

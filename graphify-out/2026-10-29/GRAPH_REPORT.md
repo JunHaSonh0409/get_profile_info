@@ -1,17 +1,17 @@
 # Graph Report - get_profile  (2026-10-29)
 
 ## Corpus Check
-- 69 files · ~27,712 words
+- 69 files · ~28,107 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 3, .example 1, .ico 1)
 
 ## Summary
-- 433 nodes · 1256 edges · 12 communities (11 shown, 1 thin omitted)
+- 434 nodes · 1265 edges · 12 communities (11 shown, 1 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1c2e9463`
+- Built from commit: `f0f2761d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,7 +22,7 @@
 - Admin Auth & Profiles API
 - Project Docs & Onboarding Spec
 - Icon
-- events.ts
+- [slug]/page.tsx
 - json
 - TypeScript Config
 - vercel.json
@@ -42,6 +42,8 @@
 10. `next` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `generateStaticParams()` --calls--> `getAllEvents()`  [EXTRACTED]
+  src/app/events/[slug]/page.tsx → src/lib/events.ts
 - `EventManagementTab()` --calls--> `Field()`  [EXTRACTED]
   src/app/admin/EventManagementTab.tsx → src/components/ui.tsx
 - `EventManagementTab()` --calls--> `Icon()`  [EXTRACTED]
@@ -50,8 +52,6 @@
   src/app/admin/EventManagementTab.tsx → src/lib/eventStages.ts
 - `Board` --references--> `OrbitEvent`  [EXTRACTED]
   src/app/admin/EventOpenManagementTab.tsx → src/types/event.ts
-- `EventOpenManagementTab()` --calls--> `Icon()`  [EXTRACTED]
-  src/app/admin/EventOpenManagementTab.tsx → src/components/ui.tsx
 
 ## Import Cycles
 - None detected.
@@ -64,15 +64,15 @@
 
 ### Community 0 - "onboarding.tsx"
 Cohesion: 0.06
-Nodes (71): AdminLogin(), INITIAL_PROFILE, missingOnStep(), ProfilePage(), ViewMode, AspectRatio, BlurIntensity, BrushSize (+63 more)
+Nodes (71): react, INITIAL_PROFILE, missingOnStep(), ProfilePage(), ViewMode, EventsSection(), AspectRatio, BlurIntensity (+63 more)
 
 ### Community 1 - "Package Dependencies"
 Cohesion: 0.08
-Nodes (33): eslintConfig, dependencies, canvas-confetti@^1.9.4, next@16.4.2, react@19.3.0, react-dom@19.3.0, @supabase/supabase-js@^2.118.0, devDependencies (+25 more)
+Nodes (31): eslintConfig, dependencies, canvas-confetti@^1.9.4, next@16.4.2, react@19.3.0, react-dom@19.3.0, devDependencies, eslint@^9 (+23 more)
 
 ### Community 2 - "eventFlow.ts"
-Cohesion: 0.12
-Nodes (40): countByGender(), db(), deleteApplication(), findApplication(), fromRow(), getApplication(), insertApplication(), listApplications() (+32 more)
+Cohesion: 0.11
+Nodes (43): countByGender(), db(), deleteApplication(), findApplication(), fromRow(), getApplication(), insertApplication(), listApplications() (+35 more)
 
 ### Community 3 - "Admin Auth & Profiles API"
 Cohesion: 0.10
@@ -84,15 +84,15 @@ Nodes (25): generate-agent-files.js (next dev), node_modules/next/dist/docs, Nex
 
 ### Community 5 - "Icon"
 Cohesion: 0.06
-Nodes (65): nextConfig, next, react, DEADLINES, Draft, EventManagementTab(), fromLocalInput(), Props (+57 more)
+Nodes (63): nextConfig, next, DEADLINES, Draft, EventManagementTab(), fromLocalInput(), Props, toLocalInput() (+55 more)
 
-### Community 6 - "events.ts"
-Cohesion: 0.22
-Nodes (14): EventPage(), EventPageContent(), FALLBACK_PARAMS, generateStaticParams(), Props, resolveEvent(), COLUMNS, createEvent() (+6 more)
+### Community 6 - "[slug]/page.tsx"
+Cohesion: 0.40
+Nodes (5): EventPage(), EventPageContent(), FALLBACK_PARAMS, generateStaticParams(), Props
 
 ### Community 7 - "json"
-Cohesion: 0.12
-Nodes (45): DELETE(), GET(), DELETE(), GET(), POST(), POST(), PATCH(), DELETE() (+37 more)
+Cohesion: 0.10
+Nodes (56): @supabase/supabase-js@^2.118.0, @supabase/supabase-js, DELETE(), GET(), DELETE(), GET(), POST(), POST() (+48 more)
 
 ### Community 8 - "TypeScript Config"
 Cohesion: 0.11
@@ -114,17 +114,17 @@ Nodes (3): metadata, serif, viewport
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `next` connect `Icon` to `Package Dependencies`, `app/layout.tsx`, `events.ts`, `json`?**
+- **Why does `next` connect `Icon` to `Package Dependencies`, `app/layout.tsx`, `[slug]/page.tsx`, `json`?**
   _High betweenness centrality (0.135) - this node is a cross-community bridge._
 - **What connects `Orbit Mark (White)`, `canvas-confetti`, `Phone Number Auto-hyphen Formatting` to the rest of the system?**
   _7 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `onboarding.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.06414565826330532 - nodes in this community are weakly interconnected._
-- **Why does `react` connect `Icon` to `onboarding.tsx`, `Package Dependencies`, `events.ts`?**
+  _Cohesion score 0.06470588235294118 - nodes in this community are weakly interconnected._
+- **Why does `react` connect `onboarding.tsx` to `Package Dependencies`, `Icon`, `[slug]/page.tsx`?**
   _High betweenness centrality (0.095) - this node is a cross-community bridge._
 - **Should `Package Dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.07563025210084033 - nodes in this community are weakly interconnected._
-- **Why does `digitsOnly()` connect `onboarding.tsx` to `Admin Auth & Profiles API`, `json`?**
+  _Cohesion score 0.07954545454545454 - nodes in this community are weakly interconnected._
+- **Why does `digitsOnly()` connect `onboarding.tsx` to `eventFlow.ts`, `Admin Auth & Profiles API`, `json`?**
   _High betweenness centrality (0.058) - this node is a cross-community bridge._
 - **Should `eventFlow.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.11733615221987315 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10904255319148937 - nodes in this community are weakly interconnected._

@@ -6,12 +6,12 @@
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 3, .example 1, .ico 1)
 
 ## Summary
-- 434 nodes · 1265 edges · 12 communities (11 shown, 1 thin omitted)
+- 434 nodes · 1263 edges · 12 communities (11 shown, 1 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 10 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f0f2761d`
+- Built from commit: `a6a357ef`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,8 +34,8 @@
 2. `fail()` - 36 edges
 3. `Icon()` - 34 edges
 4. `failWith()` - 26 edges
-5. `react` - 20 edges
-6. `createServerSupabaseClient()` - 20 edges
+5. `createServerSupabaseClient()` - 20 edges
+6. `react` - 20 edges
 7. `ProfilePage()` - 18 edges
 8. `digitsOnly()` - 18 edges
 9. `requireAdmin()` - 17 edges
@@ -50,8 +50,8 @@
   src/app/admin/EventManagementTab.tsx → src/components/ui.tsx
 - `EventManagementTab()` --calls--> `addDays()`  [EXTRACTED]
   src/app/admin/EventManagementTab.tsx → src/lib/eventStages.ts
-- `Board` --references--> `OrbitEvent`  [EXTRACTED]
-  src/app/admin/EventOpenManagementTab.tsx → src/types/event.ts
+- `EventDetailClient()` --calls--> `Icon()`  [EXTRACTED]
+  src/app/events/[slug]/EventDetailClient.tsx → src/components/ui.tsx
 
 ## Import Cycles
 - None detected.

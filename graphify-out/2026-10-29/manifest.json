@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/app/admin/EventManagementTab.tsx": {
-    "mtime": 1793272212.9930446,
-    "seen": 1793272215.3915462,
-    "ast_hash": "a165c01f142652262578b9a25310c5f9",
+    "mtime": 1793272709.75358,
+    "seen": 1793272775.5154424,
+    "ast_hash": "e137abae06d183c510d7b4758a48501c",
     "semantic_hash": ""
   },
   "src/app/admin/EventOpenManagementTab.tsx": {
@@ -223,8 +223,8 @@
   },
   "supabase/schema.sql": {
     "mtime": 1793272213.1077068,
-    "seen": 1793272215.391711,
-    "ast_hash": "",
+    "seen": 1793272907.4381196,
+    "ast_hash": "da860f2efd8cc56ee16fd7377050ac23",
     "semantic_hash": ""
   },
   "tsconfig.json": {
@@ -250,12 +250,6 @@
     "seen": 1793272215.3917341,
     "ast_hash": "919476110c8217a4710647f6795b218d",
     "semantic_hash": ""
-  },
-  "public/images/crystal_question_mark.png": {
-    "mtime": 1792577277.668,
-    "seen": 1793109928.8679967,
-    "ast_hash": "7acf55684b25a38764d3a8147ffdeff5",
-    "semantic_hash": "7acf55684b25a38764d3a8147ffdeff5"
   },
   "public/orbit-mark-white.png": {
     "mtime": 1792414653.6927984,
@@ -318,9 +312,9 @@
     "semantic_hash": ""
   },
   "src/components/EventPlate.tsx": {
-    "mtime": 1793272213.056951,
-    "seen": 1793272219.1157,
-    "ast_hash": "ba1ad21b14e7815aaa99999068860385",
+    "mtime": 1793272697.6850007,
+    "seen": 1793272775.5218043,
+    "ast_hash": "c8ff96123318d3cf99e95158ad9cdceb",
     "semantic_hash": ""
   },
   "src/components/PhotoCarousel.tsx": {
@@ -417,6 +411,18 @@
     "mtime": 1793272213.0973341,
     "seen": 1793272219.1179574,
     "ast_hash": "51785049b8ae48b1d0a660436b1aa9fa",
+    "semantic_hash": ""
+  },
+  "public/images/event-galaxy.png": {
+    "mtime": 1793272664.3255572,
+    "seen": 1793272775.5296097,
+    "ast_hash": "0e8ee3cdd0c229153dcef9e8e5ed6f8f",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261028_event_stages.sql": {
+    "mtime": 1793272213.1028047,
+    "seen": 1793272907.4381173,
+    "ast_hash": "ecf58ffd391ae66ec6da5a6edd7f4492",
     "semantic_hash": ""
   }
 }

@@ -1,6 +1,6 @@
 import type { OrbitEvent } from '@/types/event';
 import { createEvent, deleteEvent, getEventBySlug, updateEvent } from '@/lib/events';
-import { resolveEvents } from '@/lib/eventFlow';
+import { adminSetStatus, assertDeadlines, resolveEvents } from '@/lib/eventFlow';
 import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
 export async function GET(request: Request) {
@@ -13,7 +13,10 @@ export async function GET(request: Request) {
   }
 }
 
-/** Creates or edits an event card. Stage changes go through /status and /selection, never here. */
+/**
+ * 시작: saves the card fields and opens applications (진행중) in one step.
+ * Fields can only change while the event is stopped (status upcoming); stop it first via /status.
+ */
 export async function POST(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
@@ -37,10 +40,17 @@ export async function POST(request: Request) {
       likeEndsAt: body.likeEndsAt || null,
       chooseEndsAt: body.chooseEndsAt || null,
     };
-    const event = (await getEventBySlug(slug)) ? await updateEvent(slug, fields) : await createEvent({ ...fields, slug });
-    return json({ success: true, event });
+    assertDeadlines(fields);
+
+    const existing = await getEventBySlug(slug);
+    if (existing && existing.status !== 'upcoming') return fail('진행 중인 이벤트는 정지한 뒤에 수정하고 다시 시작할 수 있어요.', 409);
+    if (existing) await updateEvent(slug, fields);
+    else await createEvent({ ...fields, slug });
+
+    const event = await adminSetStatus(slug, 'ongoing');
+    return json({ success: true, event, message: `${event.volNumber} 이벤트를 시작했어요.` });
   } catch (err) {
-    return failWith(err, '이벤트를 저장하지 못했어요.');
+    return failWith(err, '이벤트를 시작하지 못했어요.');
   }
 }
 

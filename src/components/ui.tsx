@@ -91,6 +91,12 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children, footer, wide, locked }: ModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Latest close handler/lock without re-running the open effect: callers pass inline arrows,
+  // and re-running it on every render pulled focus out of inputs on each keystroke.
+  const closeRef = useRef({ onClose, locked });
+  useEffect(() => {
+    closeRef.current = { onClose, locked };
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -98,7 +104,7 @@ export function Modal({ open, onClose, title, children, footer, wide, locked }: 
     dialogRef.current?.focus();
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !locked) onClose();
+      if (e.key === 'Escape' && !closeRef.current.locked) closeRef.current.onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -106,7 +112,7 @@ export function Modal({ open, onClose, title, children, footer, wide, locked }: 
       window.removeEventListener('keydown', onKey);
       previous?.focus();
     };
-  }, [open, locked, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

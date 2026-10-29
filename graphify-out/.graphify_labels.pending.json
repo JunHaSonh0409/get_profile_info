@@ -2,7 +2,7 @@
   "0": "onboarding.tsx",
   "2": "eventFlow.ts",
   "5": "Icon",
-  "6": "events.ts",
+  "6": "[slug]/page.tsx",
   "7": "json",
   "9": "vercel.json",
   "11": "app/layout.tsx",

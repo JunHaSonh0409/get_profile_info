@@ -80,8 +80,34 @@ async function requireProfile(phone: string): Promise<Row> {
 
 /* ---------------- admin ---------------- */
 
+/** Deadlines must be in the future and in stage order; empty ones get defaults when their stage starts. */
+export function assertDeadlines(e: Pick<OrbitEvent, 'applyEndsAt' | 'likeEndsAt' | 'chooseEndsAt'>, now = new Date()) {
+  const steps = [
+    ['진행중 마감', e.applyEndsAt],
+    ['선별중 마감', e.likeEndsAt],
+    ['선택중 마감', e.chooseEndsAt],
+  ] as const;
+  let previous = now.getTime();
+  for (const [label, iso] of steps) {
+    if (!iso) continue;
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) throw new FlowError(`${label} 시각이 올바르지 않아요.`);
+    if (t <= previous) throw new FlowError(`${label} 시각은 지금과 앞 단계 마감보다 뒤여야 해요.`);
+    previous = t;
+  }
+}
+
+/**
+ * Admin stage changes. 시작 (upcoming → ongoing) only from the stopped state with valid deadlines;
+ * 정지 (ongoing → upcoming) only while applications are open, so a published lineup is never undone.
+ */
 export async function adminSetStatus(slug: string, status: EventStatus): Promise<OrbitEvent> {
   const event = await requireEvent(slug);
+  if (status === 'ongoing') {
+    if (event.status !== 'upcoming') throw new FlowError('정지된 이벤트만 시작할 수 있어요.', 409);
+    assertDeadlines(event);
+  }
+  if (status === 'upcoming' && event.status !== 'ongoing') throw new FlowError('진행중인 이벤트만 정지할 수 있어요.', 409);
   if (status === 'choosing' && !event.publishedAt) throw new FlowError('선별을 공개한 뒤에 선택중으로 넘어갈 수 있어요.');
   return enterStage(event, status);
 }

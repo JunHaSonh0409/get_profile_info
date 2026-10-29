@@ -707,35 +707,7 @@ a {
   animation: rise 0.25s var(--ease);
 }
 
-/* ---------- The event memo: written slowly, read like a letter ---------- */
-
-.letter {
-  min-height: 260px;
-  font-family: var(--serif);
-  font-size: 17px;
-  line-height: 1.9;
-  padding: 18px 18px;
-  background:
-    repeating-linear-gradient(180deg, transparent 0, transparent calc(1.9em - 1px), rgba(124, 136, 214, 0.18) calc(1.9em - 1px), rgba(124, 136, 214, 0.18) 1.9em),
-    rgba(11, 16, 38, 0.6);
-  background-attachment: local;
-  /* start the ruling at the top padding so each text line sits on a rule */
-  background-position: 0 18px, 0 0;
-}
-
-.letter-meter {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--orbit);
-  overflow: hidden;
-}
-
-.letter-meter span {
-  display: block;
-  height: 100%;
-  background: var(--starlight);
-  transition: width 0.3s var(--ease);
-}
+/* ---------- Event memo & stage timeline ---------- */
 
 .memo-quote {
   font-family: var(--serif);

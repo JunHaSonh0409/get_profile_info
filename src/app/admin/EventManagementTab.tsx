@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { OrbitEvent } from '@/types/event';
 import { formatCapacity, parseCapacity } from '@/lib/eventCapacity';
 import { STATUS_CLASS, STATUS_LABEL } from '@/lib/eventLabels';
-import { DEFAULT_DAYS, addDays } from '@/lib/eventStages';
+import { DEFAULT_DAYS, addDays, formatDeadline } from '@/lib/eventStages';
 
 const DEADLINES = [
   { key: 'applyEndsAt', label: '진행중 마감 (신청 마감)' },
@@ -37,7 +37,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
   const [isLoading, setIsLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isNew, setIsNew] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchEvents = useCallback(
@@ -94,7 +94,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
       const data = await (await fetch('/api/upload', { method: 'POST', body: form })).json();
       if (!data.success || !data.urls?.length) throw new Error(data.error);
       set({ imageUrl: data.urls[0] });
-      onShowToast('포스터를 올렸어요. 저장하면 반영돼요.');
+      onShowToast('포스터를 올렸어요. 시작하면 반영돼요.');
     } catch (err) {
       onShowToast(err instanceof Error && err.message ? err.message : '포스터를 올리지 못했어요.');
     } finally {
@@ -102,34 +102,47 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
     }
   };
 
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!draft?.slug || !draft.volNumber || !draft.title) return onShowToast('회차, 주소, 제목은 꼭 입력해야 해요.');
-    setIsSaving(true);
+  // Card fields are editable only while the event is stopped (or not created yet).
+  const editable = isNew || draft?.status === 'upcoming';
+
+  const run = async (request: () => Promise<Response>, keepSlug?: string) => {
+    setIsBusy(true);
     try {
-      // The server ignores status here; stages change only in the 진행·선별 tab or by deadline.
-      const data = await (
-        await fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft) })
-      ).json();
+      const data = await (await request()).json();
       if (!data.success) throw new Error(data.error);
-      onShowToast(`${draft.volNumber} 이벤트를 저장했어요.`);
-      await fetchEvents(draft.slug);
+      if (data.message) onShowToast(data.message);
+      await fetchEvents(keepSlug);
+      return true;
     } catch (err) {
-      onShowToast(err instanceof Error && err.message ? err.message : '저장하지 못했어요.');
+      onShowToast(err instanceof Error && err.message ? err.message : '요청을 처리하지 못했어요.');
+      return false;
     } finally {
-      setIsSaving(false);
+      setIsBusy(false);
     }
   };
 
+  /** 시작: saves the card and opens applications until the 진행중 deadline. */
+  const start = (e: FormEvent) => {
+    e.preventDefault();
+    if (!draft?.slug || !draft.volNumber || !draft.title) return onShowToast('회차, 주소, 제목은 꼭 입력해야 해요.');
+    const until = draft.applyEndsAt ? formatDeadline(draft.applyEndsAt) : `지금부터 ${DEFAULT_DAYS.apply}일 뒤`;
+    if (!confirm(`${draft.volNumber} 이벤트를 시작할까요? 지금부터 ${until}까지 신청을 받아요.`)) return;
+    void run(() => fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft) }), draft.slug);
+  };
+
+  /** 정지: closes applications and unlocks the card for editing. */
+  const stop = () => {
+    if (!draft || !confirm(`${draft.volNumber} 이벤트를 정지할까요? 신청이 멈추고, 내용을 수정할 수 있어요.`)) return;
+    void run(
+      () => fetch('/api/admin/events/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: draft.slug, status: 'upcoming' }) }),
+      draft.slug
+    );
+  };
+
   const remove = async () => {
-    if (!draft || !confirm(`${draft.volNumber} 이벤트를 삭제할까요? 되돌릴 수 없어요.`)) return;
-    try {
-      const data = await (await fetch(`/api/admin/events?slug=${encodeURIComponent(draft.slug)}`, { method: 'DELETE' })).json();
-      if (!data.success) throw new Error(data.error);
+    if (!draft || !confirm(`${draft.volNumber} 이벤트를 삭제할까요? 신청자·관심·매칭 기록도 함께 지워지고 되돌릴 수 없어요.`)) return;
+    if (await run(() => fetch(`/api/admin/events?slug=${encodeURIComponent(draft.slug)}`, { method: 'DELETE' }))) {
       onShowToast(`${draft.volNumber} 이벤트를 삭제했어요.`);
-      await fetchEvents();
-    } catch (err) {
-      onShowToast(err instanceof Error && err.message ? err.message : '삭제하지 못했어요.');
     }
   };
 
@@ -161,7 +174,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
       </aside>
 
       {draft && (
-        <form className="stack stack--lg" onSubmit={save}>
+        <form className="stack stack--lg" onSubmit={start}>
           <div className="row row--between row--wrap">
             <h2 className="title">{isNew ? '새 이벤트' : `${draft.volNumber} 편집`}</h2>
             {!isNew && (
@@ -171,6 +184,15 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
             )}
           </div>
 
+          {!editable && (
+            <p className="notice notice--info">
+              {draft.status === 'ongoing'
+                ? `진행중이에요 (${formatDeadline(draft.applyEndsAt)}까지 신청). 내용을 바꾸려면 정지하세요.`
+                : '선별중 이후에는 정지하거나 수정할 수 없어요. 단계는 진행·선별 탭에서 관리해요.'}
+            </p>
+          )}
+
+          <fieldset className="stack stack--lg" disabled={!editable || isBusy} style={{ border: 0, minWidth: 0 }}>
           <div className="grid-2" style={{ alignItems: 'start' }}>
             <div className="stack">
               <EventPlate event={{ status: draft.status || 'upcoming', volNumber: draft.volNumber || '', title: draft.title || '', imageUrl: draft.imageUrl }} />
@@ -188,7 +210,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
                 </button>
               )}
               <div className="panel stack small">
-                <span className="muted">공개 상태</span>
+                <span className="muted">현재 상태</span>
                 <span className={`status-dot ${STATUS_CLASS[draft.status || 'upcoming']}`}>{STATUS_LABEL[draft.status || 'upcoming']}</span>
                 <button type="button" className="link-btn" style={{ textAlign: 'left' }} onClick={onSwitchToOpenManage}>
                   단계 전환과 선별은 진행·선별 탭에서 해요
@@ -267,12 +289,21 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
               onChange={(e) => set({ content: e.target.value, description: e.target.value })} />
           </Field>
 
-          <div className="row">
-            <button type="submit" className="btn btn--primary" style={{ flex: 1 }} disabled={isSaving}>
-              {isSaving ? '저장하는 중' : `${draft.volNumber || '이벤트'} 저장`}
-            </button>
-            {!isNew && events.length > 1 && (
-              <button type="button" className="btn btn--danger" onClick={remove}>
+          </fieldset>
+
+          <div className="row row--wrap">
+            {editable && (
+              <button type="submit" className="btn btn--primary" style={{ flex: 1 }} disabled={isBusy}>
+                {isBusy ? '처리하는 중' : '시작'}
+              </button>
+            )}
+            {draft.status === 'ongoing' && (
+              <button type="button" className="btn btn--ghost" style={{ flex: 1 }} onClick={stop} disabled={isBusy}>
+                정지
+              </button>
+            )}
+            {!isNew && (
+              <button type="button" className="btn btn--danger" onClick={remove} disabled={isBusy}>
                 <Icon name="trash" /> 삭제
               </button>
             )}

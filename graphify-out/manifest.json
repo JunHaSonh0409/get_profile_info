@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/app/admin/EventManagementTab.tsx": {
-    "mtime": 1793272709.75358,
-    "seen": 1793272775.5154424,
-    "ast_hash": "e137abae06d183c510d7b4758a48501c",
+    "mtime": 1793274215.8207965,
+    "seen": 1793274341.9730587,
+    "ast_hash": "ac661f071a32b7d9055eb00e5ab13e00",
     "semantic_hash": ""
   },
   "src/app/admin/EventOpenManagementTab.tsx": {
@@ -60,9 +60,9 @@
     "semantic_hash": ""
   },
   "src/app/api/admin/events/route.ts": {
-    "mtime": 1793272213.0091045,
-    "seen": 1793272215.3915775,
-    "ast_hash": "bac2a2609aaf8c55c6915fbf201594f7",
+    "mtime": 1793274161.4227085,
+    "seen": 1793274341.9772704,
+    "ast_hash": "0421799b4798eb7544e5ea14d91e0328",
     "semantic_hash": ""
   },
   "src/app/api/admin/events/status/route.ts": {
@@ -108,9 +108,9 @@
     "semantic_hash": ""
   },
   "src/app/events/[slug]/EventDetailClient.tsx": {
-    "mtime": 1793272213.044632,
-    "seen": 1793272215.3916156,
-    "ast_hash": "33023f631fbce2aa727942d6312612a0",
+    "mtime": 1793274132.625808,
+    "seen": 1793274341.9848192,
+    "ast_hash": "8d58ba6233291347571d8363faad8800",
     "semantic_hash": ""
   },
   "src/app/events/[slug]/page.tsx": {
@@ -223,7 +223,7 @@
   },
   "supabase/schema.sql": {
     "mtime": 1793272213.1077068,
-    "seen": 1793272215.391711,
+    "seen": 1793272907.4381196,
     "ast_hash": "",
     "semantic_hash": ""
   },
@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "src/components/ui.tsx": {
-    "mtime": 1793272213.0759654,
-    "seen": 1793272219.1170514,
-    "ast_hash": "e594c63f00de3a09e2049260a2b5b7d2",
+    "mtime": 1793274122.1475196,
+    "seen": 1793274341.9944048,
+    "ast_hash": "862a4fe6da2ce19d00877221a118fcf6",
     "semantic_hash": ""
   },
   "src/lib/csv.ts": {
@@ -360,9 +360,9 @@
     "semantic_hash": ""
   },
   "src/lib/eventFlow.ts": {
-    "mtime": 1793272213.0830455,
-    "seen": 1793272219.1175072,
-    "ast_hash": "3c2246ce077d99265ab74c725dd76d8e",
+    "mtime": 1793274172.4305437,
+    "seen": 1793274341.995719,
+    "ast_hash": "004305985f443d2e9b2a81d0b7a19701",
     "semantic_hash": ""
   },
   "src/lib/eventLabels.ts": {
@@ -417,6 +417,12 @@
     "mtime": 1793272664.3255572,
     "seen": 1793272775.5296097,
     "ast_hash": "0e8ee3cdd0c229153dcef9e8e5ed6f8f",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261028_event_stages.sql": {
+    "mtime": 1793272213.1028047,
+    "seen": 1793272907.4381173,
+    "ast_hash": "",
     "semantic_hash": ""
   }
 }

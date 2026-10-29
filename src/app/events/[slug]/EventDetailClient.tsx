@@ -213,15 +213,13 @@ export default function EventDetailClient({ event: initialEvent }: { event: Orbi
             </label>
             <textarea
               id="apply-memo"
-              className="textarea letter"
+              className="textarea"
+              rows={8}
               maxLength={MEMO_MAX}
               placeholder="천천히, 나다운 말로 적어주세요."
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
             />
-            <div className="letter-meter" aria-hidden="true">
-              <span style={{ width: `${Math.min(100, (length / MEMO_GOAL) * 100)}%` }} />
-            </div>
             <div className="counter">
               <span>{length < MEMO_MIN ? `${MEMO_MIN - length}자 더 쓰면 신청할 수 있어요` : length < MEMO_GOAL ? `${MEMO_GOAL}자 넘게 쓰면 정성이 잘 전해져요` : '충분히 정성스러워요'}</span>
               <span>{length} / {MEMO_MAX}자</span>

@@ -1,12 +1,12 @@
 import { connection } from 'next/server';
-import { getAllEvents } from '@/lib/events';
-import { errorMessage, fail, json } from '@/lib/http';
+import { resolveEvents } from '@/lib/eventFlow';
+import { failWith, json } from '@/lib/http';
 
 export async function GET() {
   await connection(); // events change at runtime; never prerender this response
   try {
-    return json({ success: true, events: await getAllEvents() });
+    return json({ success: true, events: await resolveEvents() });
   } catch (err) {
-    return fail(errorMessage(err, 'Failed to fetch events'), 500);
+    return failWith(err, '이벤트를 불러오지 못했어요.');
   }
 }

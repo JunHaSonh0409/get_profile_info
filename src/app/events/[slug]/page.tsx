@@ -1,20 +1,28 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
-import { getEventBySlug, getAllEvents } from '@/lib/events';
+import { getAllEvents } from '@/lib/events';
+import { resolveEvent } from '@/lib/eventFlow';
 import EventDetailClient from './EventDetailClient';
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+// Cache Components requires at least one param; other slugs still render on demand.
+const FALLBACK_PARAMS = [{ slug: 'vol01' }];
+
 export async function generateStaticParams() {
-  const events = await getAllEvents();
-  return events.map((e) => ({ slug: e.slug }));
+  try {
+    const params = (await getAllEvents()).map((e) => ({ slug: e.slug }));
+    return params.length > 0 ? params : FALLBACK_PARAMS;
+  } catch {
+    return FALLBACK_PARAMS; // build without DB access
+  }
 }
 
 async function EventPageContent({ params }: Props) {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  const event = await resolveEvent(slug);
   if (!event) notFound();
   return <EventDetailClient event={event} />;
 }

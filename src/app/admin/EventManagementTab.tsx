@@ -5,6 +5,21 @@ import Link from 'next/link';
 import type { OrbitEvent } from '@/types/event';
 import { formatCapacity, parseCapacity } from '@/lib/eventCapacity';
 import { STATUS_CLASS, STATUS_LABEL } from '@/lib/eventLabels';
+import { DEFAULT_DAYS, addDays } from '@/lib/eventStages';
+
+const DEADLINES = [
+  { key: 'applyEndsAt', label: '진행중 마감 (신청 마감)' },
+  { key: 'likeEndsAt', label: '선별중 마감 (관심 마감)' },
+  { key: 'chooseEndsAt', label: '선택중 마감 (이벤트 종료)' },
+] as const;
+
+/** ISO -> value for <input type="datetime-local"> in the admin's local time. */
+const toLocalInput = (iso?: string | null) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
 import EventPlate from '@/components/EventPlate';
 import { Field, Icon } from '@/components/ui';
 
@@ -46,7 +61,6 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
 
   const set = (fields: Partial<OrbitEvent>) => setDraft((d) => (d ? { ...d, ...fields } : d));
   const capacity = parseCapacity(draft?.capacity);
-  const saved = events.find((e) => e.slug === draft?.slug);
 
   const addEvent = () => {
     const n = String(events.length + 1).padStart(2, '0');
@@ -93,10 +107,9 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
     if (!draft?.slug || !draft.volNumber || !draft.title) return onShowToast('회차, 주소, 제목은 꼭 입력해야 해요.');
     setIsSaving(true);
     try {
-      // Open/end status belongs to the open-management tab; never overwrite it from here.
-      const payload = { ...draft, status: saved?.status || draft.status || 'upcoming' };
+      // The server ignores status here; stages change only in the 진행·선별 tab or by deadline.
       const data = await (
-        await fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        await fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft) })
       ).json();
       if (!data.success) throw new Error(data.error);
       onShowToast(`${draft.volNumber} 이벤트를 저장했어요.`);
@@ -178,7 +191,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
                 <span className="muted">공개 상태</span>
                 <span className={`status-dot ${STATUS_CLASS[draft.status || 'upcoming']}`}>{STATUS_LABEL[draft.status || 'upcoming']}</span>
                 <button type="button" className="link-btn" style={{ textAlign: 'left' }} onClick={onSwitchToOpenManage}>
-                  오픈·종료는 오픈·신청자 탭에서 바꿔요
+                  단계 전환과 선별은 진행·선별 탭에서 해요
                 </button>
               </div>
             </div>
@@ -225,6 +238,29 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
               </Field>
             ))}
           </div>
+
+          <fieldset className="panel stack">
+            <legend className="label">단계 마감 시각</legend>
+            <p className="hint">시각이 지나면 다음 단계로 자동으로 넘어가요. 선별중 → 선택중은 선별을 공개한 뒤에만 넘어가요.</p>
+            <div className="grid-2">
+              {DEADLINES.map(({ key, label }) => (
+                <Field key={key} label={label} htmlFor={`ev-${key}`}>
+                  <input id={`ev-${key}`} className="input" type="datetime-local" value={toLocalInput(draft[key])}
+                    onChange={(e) => set({ [key]: fromLocalInput(e.target.value) })} />
+                </Field>
+              ))}
+            </div>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => {
+              const now = new Date();
+              set({
+                applyEndsAt: addDays(now, DEFAULT_DAYS.apply),
+                likeEndsAt: addDays(now, DEFAULT_DAYS.apply + DEFAULT_DAYS.like),
+                chooseEndsAt: addDays(now, DEFAULT_DAYS.apply + DEFAULT_DAYS.like + DEFAULT_DAYS.choose),
+              });
+            }}>
+              지금부터 기본 일정으로 채우기 (3일 · 2일 · 1일)
+            </button>
+          </fieldset>
 
           <Field label="상세 안내" htmlFor="ev-content" hint="이벤트 페이지 본문과 목록 소개에 함께 쓰여요.">
             <textarea id="ev-content" className="textarea" rows={6} value={draft.content || draft.description || ''}

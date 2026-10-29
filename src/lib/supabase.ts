@@ -16,6 +16,11 @@ export const isSupabaseConfigured = Boolean(
   !supabaseKey.includes('your-anon-key')
 );
 
+// After the RLS lockdown migration the anon key can no longer read or write any table.
+if (isSupabaseConfigured && !process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NODE_ENV === 'production') {
+  console.error('SUPABASE_SERVICE_ROLE_KEY is not set: database calls will be rejected by row level security.');
+}
+
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
   : null;

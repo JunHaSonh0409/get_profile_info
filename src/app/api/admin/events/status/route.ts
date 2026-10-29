@@ -1,26 +1,18 @@
-import { getEventBySlug, upsertEvent } from '@/lib/events';
-import { errorMessage, fail, json, requireAdmin } from '@/lib/http';
+import type { EventStatus } from '@/types/event';
+import { adminSetStatus } from '@/lib/eventFlow';
+import { STAGE_LABEL, STAGE_ORDER } from '@/lib/eventStages';
+import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
-const STATUS_LABEL = { upcoming: '오픈 대기', ongoing: '공식 오픈', ended: '종료' } as const;
-
+/** Manual stage change (deadlines also move events forward automatically). */
 export async function PATCH(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
-
   try {
     const { slug, status } = await request.json();
-    if (!slug || !(status in STATUS_LABEL)) return fail('slug and a valid status are required', 400);
-
-    const event = await getEventBySlug(slug);
-    if (!event) return fail('Event not found', 404);
-
-    const updated = await upsertEvent({ ...event, slug, status });
-    return json({
-      success: true,
-      event: updated,
-      message: `${updated.volNumber} 이벤트 상태가 [${STATUS_LABEL[status as keyof typeof STATUS_LABEL]}]으로 변경되었습니다.`,
-    });
+    if (!slug || !STAGE_ORDER.includes(status)) return fail('slug와 올바른 단계가 필요해요.', 400);
+    const event = await adminSetStatus(slug, status as EventStatus);
+    return json({ success: true, event, message: `${event.volNumber} 이벤트를 [${STAGE_LABEL[event.status]}] 단계로 바꿨어요.` });
   } catch (err) {
-    return fail(errorMessage(err, 'Failed'), 500);
+    return failWith(err, '단계를 바꾸지 못했어요.');
   }
 }

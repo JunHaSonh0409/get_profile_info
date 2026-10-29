@@ -1,19 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 import { errorMessage, fail, json, requireMember } from '@/lib/http';
-import { digitsOnly } from '@/lib/format';
-import { normalizeProfile, toProfileRow, uploadPhotos } from '@/lib/profiles';
+import { findProfileByPhone, normalizeProfile, toProfileRow, uploadPhotos } from '@/lib/profiles';
 
 const DUPLICATE_PHONE = '이미 등록된 전화번호입니다. 1인당 1개의 프로필만 등록하실 수 있습니다.';
 
 // Every handler acts only on the profile of the phone in the member session cookie;
 // phone/id sent by the client are ignored.
 
-// Older rows may store the phone with separators, so match on digits only.
+// Phones are stored digits-only (schema normalizes them), so an indexed equality lookup is enough.
 async function findProfileId(supabase: SupabaseClient, phone: string): Promise<string | null> {
-  const { data, error } = await supabase.from('profiles').select('id, phone');
-  if (error) throw new Error(error.message);
-  return data?.find((row) => digitsOnly(row.phone) === phone)?.id ?? null;
+  return (await findProfileByPhone(supabase, phone))?.id ?? null;
 }
 
 export async function POST(request: Request) {

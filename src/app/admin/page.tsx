@@ -38,7 +38,7 @@ type SortKey = 'newest' | 'oldest' | 'height_desc' | 'height_asc';
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'profiles', label: '회원 프로필' },
   { id: 'events', label: '이벤트 카드' },
-  { id: 'open_manage', label: '오픈·신청자' },
+  { id: 'open_manage', label: '진행·선별' },
 ];
 
 const isMale = (g: string) => g === 'male' || g === '남성';

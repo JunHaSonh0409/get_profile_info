@@ -7,6 +7,13 @@ const PHOTO_BUCKET = 'profile-photos';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase row / request body
 type Row = Record<string, any>;
 
+/** The member's profile row (phones are stored as digits only), or null. */
+export async function findProfileByPhone(supabase: SupabaseClient, phone: string): Promise<Row | null> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('phone', digitsOnly(phone)).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 /** DB row (snake_case) -> client profile shape (camelCase fields added). */
 export function normalizeProfile(row: Row): Row {
   return {

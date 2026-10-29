@@ -1,126 +1,120 @@
-import fs from 'fs';
-import path from 'path';
-import { EventApplication, EventApplicationStats } from '@/types/application';
-import { supabase } from '@/lib/supabase';
-import { digitsOnly } from '@/lib/format';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { EventApplication, PublicCard } from '@/types/application';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { MAX_PHOTOS } from '@/lib/profiles';
 
-const dataFilePath = path.join(process.cwd(), 'data', 'event_applications.json');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows
+type Row = Record<string, any>;
 
-function getLocalApplications(): EventApplication[] {
-  try {
-    if (fs.existsSync(dataFilePath)) {
-      const parsed = JSON.parse(fs.readFileSync(dataFilePath, 'utf8'));
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (err) {
-    console.error('Failed to read local applications file:', err);
-  }
-  return [];
+export const MEMO_MIN = 30;
+export const MEMO_MAX = 1000;
+
+const db = (): SupabaseClient => createServerSupabaseClient();
+
+/** Everything a member may show to other members: never real name or phone. */
+export function toPublicCard(id: string, profile: Row, memo = ''): PublicCard {
+  return {
+    id,
+    nickname: profile.nickname,
+    gender: profile.gender,
+    age: profile.age,
+    height: profile.height,
+    location: profile.location,
+    mbti: profile.mbti || '',
+    photos: Array.isArray(profile.photos) ? profile.photos.slice(0, MAX_PHOTOS) : [],
+    preferredAnimals: profile.preferred_animals || [],
+    preferredAppearanceDetail: profile.preferred_appearance_detail || '',
+    preferredPartnerDetail: profile.preferred_partner_detail || '',
+    selfIntro: profile.self_intro || '',
+    memo,
+  };
 }
 
-// Serverless filesystems are read-only; the local file is a best-effort dev fallback.
-function saveLocalApplications(apps: EventApplication[]): void {
-  try {
-    fs.mkdirSync(path.dirname(dataFilePath), { recursive: true });
-    fs.writeFileSync(dataFilePath, JSON.stringify(apps, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Failed to write local applications file:', err);
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase row
-function fromRow(row: Record<string, any>): EventApplication {
+function fromRow(row: Row): EventApplication {
+  const p = row.profile;
   return {
     id: row.id,
     eventSlug: row.event_slug,
     volNumber: row.vol_number,
+    profileId: row.profile_id,
     name: row.name,
     phone: row.phone,
     gender: row.gender || '',
     age: row.age || '',
-    status: row.status || 'confirmed',
     memo: row.memo || '',
+    selected: Boolean(row.selected),
     created_at: row.created_at,
+    card: p ? toPublicCard(row.id, p, row.memo || '') : null,
   };
 }
 
-/** Applications for one event (or all), Supabase first with the local file as fallback. */
-export async function getApplications(eventSlug?: string): Promise<EventApplication[]> {
-  const slug = eventSlug?.toLowerCase();
-  if (supabase) {
-    let query = supabase.from('event_applications').select('*').order('created_at', { ascending: false });
-    if (slug) query = query.eq('event_slug', slug);
-    const { data, error } = await query;
-    if (!error && data.length > 0) return data.map(fromRow);
-  }
-  const local = getLocalApplications();
-  return slug ? local.filter((a) => a.eventSlug.toLowerCase() === slug) : local;
+const WITH_PROFILE = '*, profile:profiles(*)';
+
+/** All applications for an event, newest first, joined with the applicant's profile. */
+export async function listApplications(eventSlug: string): Promise<EventApplication[]> {
+  const { data, error } = await db()
+    .from('event_applications')
+    .select(WITH_PROFILE)
+    .eq('event_slug', eventSlug.toLowerCase())
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data.map(fromRow);
 }
 
-export async function createApplication(
-  payload: Omit<EventApplication, 'id' | 'created_at'>
-): Promise<{ success: boolean; application?: EventApplication; error?: string }> {
-  const eventSlug = payload.eventSlug.toLowerCase();
-  const phone = digitsOnly(payload.phone);
-
-  if (phone.length < 9) return { success: false, error: '유효한 전화번호를 입력해주세요.' };
-  if (!payload.name.trim()) return { success: false, error: '이름을 입력해주세요.' };
-
-  const existing = await getApplications(eventSlug);
-  if (existing.some((a) => digitsOnly(a.phone) === phone)) {
-    return { success: false, error: '이미 해당 이벤트에 신청이 완료된 전화번호입니다.' };
-  }
-
-  const application: EventApplication = {
-    ...payload,
-    id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    eventSlug,
-    name: payload.name.trim(),
-    phone,
-    status: payload.status || 'confirmed',
-    memo: payload.memo || '',
-    created_at: new Date().toISOString(),
-  };
-
-  saveLocalApplications([application, ...getLocalApplications()]);
-  if (supabase) {
-    const { error } = await supabase.from('event_applications').insert({
-      event_slug: application.eventSlug,
-      vol_number: application.volNumber,
-      name: application.name,
-      phone: application.phone,
-      gender: application.gender,
-      age: application.age,
-      status: application.status,
-      memo: application.memo,
-    });
-    if (error) console.warn('[Supabase Applications] insert warning:', error.message);
-  }
-
-  return { success: true, application };
+export async function findApplication(eventSlug: string, profileId: string): Promise<EventApplication | null> {
+  const { data, error } = await db()
+    .from('event_applications')
+    .select(WITH_PROFILE)
+    .eq('event_slug', eventSlug.toLowerCase())
+    .eq('profile_id', profileId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? fromRow(data) : null;
 }
 
-export async function updateApplicationStatus(id: string, status: EventApplication['status']): Promise<void> {
-  saveLocalApplications(getLocalApplications().map((a) => (a.id === id ? { ...a, status } : a)));
-  if (supabase) await supabase.from('event_applications').update({ status }).eq('id', id);
+export async function getApplication(id: string): Promise<EventApplication | null> {
+  const { data, error } = await db().from('event_applications').select(WITH_PROFILE).eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? fromRow(data) : null;
+}
+
+export async function countByGender(eventSlug: string, gender: string): Promise<number> {
+  const { count, error } = await db()
+    .from('event_applications')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_slug', eventSlug.toLowerCase())
+    .eq('gender', gender);
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
+/** Name, phone, gender and age are copied from the verified profile; the member only writes the memo. */
+export async function insertApplication(eventSlug: string, volNumber: string, profile: Row, memo: string): Promise<void> {
+  const { error } = await db().from('event_applications').insert({
+    event_slug: eventSlug.toLowerCase(),
+    vol_number: volNumber,
+    profile_id: profile.id,
+    name: profile.name,
+    phone: profile.phone,
+    gender: profile.gender,
+    age: profile.age,
+    memo,
+    status: 'confirmed',
+  });
+  if (error) throw new Error(error.code === '23505' ? '이미 이 이벤트에 신청했어요.' : error.message);
 }
 
 export async function deleteApplication(id: string): Promise<void> {
-  saveLocalApplications(getLocalApplications().filter((a) => a.id !== id));
-  if (supabase) await supabase.from('event_applications').delete().eq('id', id);
+  const { error } = await db().from('event_applications').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
-export const isMaleApplicant = (a: EventApplication) => a.gender === '남성' || a.gender === 'male';
-export const isFemaleApplicant = (a: EventApplication) => a.gender === '여성' || a.gender === 'female';
-
-export function getApplicationStats(apps: EventApplication[]): EventApplicationStats {
-  const count = (fn: (a: EventApplication) => boolean) => apps.filter(fn).length;
-  return {
-    total: apps.length,
-    male: count(isMaleApplicant),
-    female: count(isFemaleApplicant),
-    confirmed: count((a) => a.status === 'confirmed'),
-    pending: count((a) => a.status === 'pending'),
-    cancelled: count((a) => a.status === 'cancelled'),
-  };
+/** Replaces the selection for an event: exactly `ids` end up selected. */
+export async function setSelection(eventSlug: string, ids: string[]): Promise<void> {
+  const slug = eventSlug.toLowerCase();
+  const clear = await db().from('event_applications').update({ selected: false }).eq('event_slug', slug);
+  if (clear.error) throw new Error(clear.error.message);
+  if (ids.length === 0) return;
+  const set = await db().from('event_applications').update({ selected: true }).eq('event_slug', slug).in('id', ids);
+  if (set.error) throw new Error(set.error.message);
 }

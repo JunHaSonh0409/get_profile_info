@@ -1,46 +1,29 @@
-import { deleteApplication, getApplicationStats, getApplications, updateApplicationStatus } from '@/lib/applications';
-import { errorMessage, fail, json, requireAdmin } from '@/lib/http';
+import { deleteApplication } from '@/lib/applications';
+import { adminBoard } from '@/lib/eventFlow';
+import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
+/** Applicants of one event (with profiles, selection flags and like counts) plus its matches. */
 export async function GET(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
-
+  const slug = new URL(request.url).searchParams.get('slug');
+  if (!slug) return fail('slug가 필요해요.', 400);
   try {
-    const slug = new URL(request.url).searchParams.get('slug') || undefined;
-    const applications = await getApplications(slug);
-    return json({ success: true, applications, stats: slug ? getApplicationStats(applications) : null });
+    return json({ success: true, ...(await adminBoard(slug)) });
   } catch (err) {
-    return fail(errorMessage(err, 'Failed'), 500);
-  }
-}
-
-export async function PATCH(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) return denied;
-
-  try {
-    const { id, status } = await request.json();
-    if (!id || !['pending', 'confirmed', 'cancelled'].includes(status)) {
-      return fail('id and a valid status are required', 400);
-    }
-    await updateApplicationStatus(id, status);
-    return json({ success: true });
-  } catch (err) {
-    return fail(errorMessage(err, 'Failed'), 500);
+    return failWith(err, '신청자 목록을 불러오지 못했어요.');
   }
 }
 
 export async function DELETE(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
-
   const id = new URL(request.url).searchParams.get('id');
-  if (!id) return fail('id required', 400);
-
+  if (!id) return fail('id가 필요해요.', 400);
   try {
     await deleteApplication(id);
     return json({ success: true });
   } catch (err) {
-    return fail(errorMessage(err, 'Failed'), 500);
+    return failWith(err, '신청을 삭제하지 못했어요.');
   }
 }

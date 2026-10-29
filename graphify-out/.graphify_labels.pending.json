@@ -1,10 +1,8 @@
 {
   "0": "onboarding.tsx",
-  "2": "applications.ts",
+  "2": "eventFlow.ts",
   "5": "Icon",
-  "6": "digitsOnly",
   "7": "json",
   "9": "vercel.json",
-  "10": "admin/layout.tsx",
   "11": "app/layout.tsx"
 }

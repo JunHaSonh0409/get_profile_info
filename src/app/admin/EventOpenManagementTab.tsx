@@ -1,139 +1,169 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { OrbitEvent } from '@/types/event';
-import type { EventApplication, EventApplicationStats } from '@/types/application';
+import type { EventStatus, OrbitEvent } from '@/types/event';
+import type { EventApplication } from '@/types/application';
 import { parseCapacity } from '@/lib/eventCapacity';
-import { STATUS_CLASS, STATUS_LABEL, volEnd } from '@/lib/eventLabels';
+import { STAGE_LABEL } from '@/lib/eventStages';
 import { downloadCsv, today } from '@/lib/csv';
+import { StageTimeline } from '@/components/eventBoard';
 import { Icon } from '@/components/ui';
 
-type Status = OrbitEvent['status'];
-
-const APP_STATUS = {
-  confirmed: { label: '참석 확정', className: 'tag--aurora' },
-  pending: { label: '대기', className: 'tag--gold' },
-  cancelled: { label: '취소', className: 'tag--ember' },
-} as const;
+type Applicant = EventApplication & { likeCount: number };
+interface Board {
+  event: OrbitEvent;
+  applications: Applicant[];
+  totalLikes: number;
+  matches: { applicationId: string; partner: { nickname: string; name: string; phone: string } | null }[];
+}
 
 const isMale = (g: string) => g === '남성' || g === 'male';
+const hasPhoto = (a: Applicant) => Boolean(a.card?.photos.length);
+
+/** Unbiased random sample using the browser's CSPRNG. */
+function sample<T>(items: T[], n: number): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, Math.max(0, n));
+}
+
+const NEXT_STEP: Partial<Record<EventStatus, { to: EventStatus; label: string; confirm: string }>> = {
+  upcoming: { to: 'ongoing', label: '진행중으로 열기 (신청 시작)', confirm: '신청을 받기 시작할까요?' },
+  ongoing: { to: 'screening', label: '신청 마감하고 선별중으로', confirm: '신청을 마감할까요? 이후로는 신청할 수 없어요.' },
+  screening: { to: 'choosing', label: '관심 마감하고 선택중으로', confirm: '관심 보내기를 마감하고 선택 단계로 넘길까요?' },
+  choosing: { to: 'ended', label: '종료하고 매칭 공개', confirm: '이벤트를 종료할까요? 매칭된 두 사람에게 서로의 연락처가 전달돼요.' },
+};
 
 export default function EventOpenManagementTab({ onShowToast }: { onShowToast: (msg: string) => void }) {
   const [events, setEvents] = useState<OrbitEvent[]>([]);
-  const [selectedSlug, setSelectedSlug] = useState('');
-  const [applications, setApplications] = useState<EventApplication[]>([]);
-  const [stats, setStats] = useState<EventApplicationStats | null>(null);
-  const [isChanging, setIsChanging] = useState(false);
-  const [search, setSearch] = useState('');
-  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [slug, setSlug] = useState('');
+  const [board, setBoard] = useState<Board | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Selection draft (only while screening and not yet published)
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [skipNoPhoto, setSkipNoPhoto] = useState(true);
+  const [randomCount, setRandomCount] = useState({ male: '', female: '' });
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/events', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         setEvents(data.events || []);
-        setSelectedSlug((s) => s || data.events?.[0]?.slug || '');
+        setSlug((s) => s || data.events?.[0]?.slug || '');
       })
       .catch(() => onShowToast('이벤트 목록을 불러오지 못했어요.'));
   }, [onShowToast]);
 
-  const fetchApplications = useCallback(
-    (slug: string) =>
-      fetch(`/api/admin/events/applications?slug=${encodeURIComponent(slug)}`, { cache: 'no-store' })
+  const load = useCallback(
+    (target: string) =>
+      fetch(`/api/admin/events/applications?slug=${encodeURIComponent(target)}`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
-          setApplications(data.applications || []);
-          setStats(data.stats || null);
+          if (!data.success) throw new Error(data.error);
+          setBoard(data);
+          setPicked(new Set((data.applications as Applicant[]).filter((a) => a.selected).map((a) => a.id)));
+          const cap = parseCapacity(data.event.capacity);
+          setRandomCount({ male: cap.male?.toString() ?? '', female: cap.female?.toString() ?? '' });
         })
-        .catch(() => onShowToast('신청자 목록을 불러오지 못했어요.')),
+        .catch((err) => onShowToast(err instanceof Error && err.message ? err.message : '신청자 목록을 불러오지 못했어요.')),
     [onShowToast]
   );
 
   useEffect(() => {
-    if (selectedSlug) void fetchApplications(selectedSlug);
-  }, [selectedSlug, fetchApplications]);
+    if (slug) void load(slug);
+  }, [slug, load]);
 
-  const event = events.find((e) => e.slug === selectedSlug);
-  if (!event) return <p className="muted">이벤트를 불러오는 중이거나 등록된 이벤트가 없어요.</p>;
+  const apps = useMemo(() => board?.applications ?? [], [board]);
+  const editable = board?.event.status === 'screening' && !board.event.publishedAt;
+  const eligible = (a: Applicant) => !skipNoPhoto || hasPhoto(a);
 
-  const changeStatus = async (status: Status) => {
-    setIsChanging(true);
+  if (!board) return <p className="muted">이벤트를 불러오는 중이거나 등록된 이벤트가 없어요.</p>;
+  const { event } = board;
+  const capacity = parseCapacity(event.capacity);
+  const males = apps.filter((a) => isMale(a.gender));
+  const pickedApps = apps.filter((a) => picked.has(a.id));
+  const matchOf = new Map(board.matches.map((m) => [m.applicationId, m.partner]));
+
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const pickRandom = () => {
+    const m = Number(randomCount.male) || 0;
+    const f = Number(randomCount.female) || 0;
+    const pool = apps.filter(eligible);
+    const chosen = [...sample(pool.filter((a) => isMale(a.gender)), m), ...sample(pool.filter((a) => !isMale(a.gender)), f)];
+    setPicked(new Set(chosen.map((a) => a.id)));
+    const short = [m > chosen.filter((a) => isMale(a.gender)).length && '남성', f > chosen.filter((a) => !isMale(a.gender)).length && '여성'].filter(Boolean);
+    onShowToast(short.length ? `${short.join('·')} 후보가 부족해서 있는 만큼만 뽑았어요.` : `남 ${m}명, 여 ${f}명을 무작위로 뽑았어요.`);
+  };
+
+  const applyPhotoFilter = (on: boolean) => {
+    setSkipNoPhoto(on);
+    if (on) setPicked((prev) => new Set([...prev].filter((id) => hasPhoto(apps.find((a) => a.id === id)!))));
+  };
+
+  const request = async (url: string, init: RequestInit, success: string) => {
+    setBusy(true);
     try {
-      const data = await (
-        await fetch('/api/admin/events/status', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: event.slug, status }),
-        })
-      ).json();
+      const data = await (await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } })).json();
       if (!data.success) throw new Error(data.error);
-      onShowToast(data.message || '상태를 바꿨어요.');
-      setEvents((prev) => prev.map((ev) => (ev.slug === event.slug ? { ...ev, status } : ev)));
+      onShowToast(data.message || success);
+      if (data.event) setEvents((prev) => prev.map((e) => (e.slug === data.event.slug ? data.event : e)));
+      await load(slug);
     } catch (err) {
-      onShowToast(err instanceof Error && err.message ? err.message : '상태를 바꾸지 못했어요.');
+      onShowToast(err instanceof Error && err.message ? err.message : '요청을 처리하지 못했어요.');
     } finally {
-      setIsChanging(false);
+      setBusy(false);
     }
   };
 
-  const updateApp = async (id: string, status: 'confirmed' | 'cancelled') => {
-    const res = await fetch('/api/admin/events/applications', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
-    }).catch(() => null);
-    if (!res?.ok) return onShowToast('신청 상태를 바꾸지 못했어요.');
-    onShowToast(`${APP_STATUS[status].label}(으)로 바꿨어요.`);
-    fetchApplications(event.slug);
+  const advance = () => {
+    const step = NEXT_STEP[event.status];
+    if (step && confirm(step.confirm)) void request('/api/admin/events/status', { method: 'PATCH', body: JSON.stringify({ slug, status: step.to }) }, '단계를 바꿨어요.');
   };
 
-  const deleteApp = async (id: string, name: string) => {
-    if (!confirm(`${name}님의 신청을 삭제할까요?`)) return;
-    const res = await fetch(`/api/admin/events/applications?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => null);
-    if (!res?.ok) return onShowToast('신청을 삭제하지 못했어요.');
-    onShowToast('신청을 삭제했어요.');
-    fetchApplications(event.slug);
+  const publish = () => {
+    if (pickedApps.length === 0) return onShowToast('선별할 사람을 1명 이상 골라주세요.');
+    const m = pickedApps.filter((a) => isMale(a.gender)).length;
+    if (!confirm(`남 ${m}명, 여 ${pickedApps.length - m}명을 선별해 공개할까요? 공개하면 모든 회원이 볼 수 있고, 선별은 바꿀 수 없어요.`)) return;
+    void request('/api/admin/events/selection', { method: 'POST', body: JSON.stringify({ slug, ids: [...picked] }) }, '선별을 공개했어요. 이제 회원들이 관심을 보낼 수 있어요.');
   };
 
-  const q = search.trim().toLowerCase();
-  const filtered = applications.filter(
-    (a) =>
-      (!q || a.name.toLowerCase().includes(q) || a.phone.includes(q)) &&
-      (genderFilter === 'all' || isMale(a.gender) === (genderFilter === 'male'))
-  );
+  const remove = (a: Applicant) => {
+    if (confirm(`${a.name}님의 신청을 삭제할까요?`)) void request(`/api/admin/events/applications?id=${encodeURIComponent(a.id)}`, { method: 'DELETE' }, '신청을 삭제했어요.');
+  };
 
   const exportCsv = () => {
-    if (applications.length === 0) return onShowToast('내려받을 신청자가 없어요.');
+    if (apps.length === 0) return onShowToast('내려받을 신청자가 없어요.');
     downloadCsv(
-      `orbit_${event.slug}_applicants_${today()}.csv`,
-      ['신청일시', '이벤트', '이름', '연락처', '성별', '나이', '상태', '한마디'],
-      applications.map((a) => [
-        a.created_at ? new Date(a.created_at).toLocaleString('ko-KR') : '',
-        a.volNumber, a.name, a.phone, a.gender, a.age, APP_STATUS[a.status]?.label || a.status, a.memo,
+      `orbit_${slug}_applicants_${today()}.csv`,
+      ['신청일시', '이름', '닉네임', '연락처', '성별', '나이', '사진수', '선별', '받은관심', '매칭상대', '한마디'],
+      apps.map((a) => [
+        new Date(a.created_at).toLocaleString('ko-KR'), a.name, a.card?.nickname, a.phone, a.gender, a.age, a.card?.photos.length ?? 0,
+        a.selected ? 'O' : '', a.likeCount, matchOf.get(a.id)?.name ?? '', a.memo,
       ])
     );
-    onShowToast('신청자 명단을 CSV로 내려받았어요.');
   };
 
-  const capacity = parseCapacity(event.capacity);
-  const seats = (taken: number, limit: number | null) => (limit === null ? `${taken}명` : `${taken} / ${limit}명`);
-  const activeMale = applications.filter((a) => isMale(a.gender) && a.status !== 'cancelled').length;
-  const activeFemale = applications.filter((a) => !isMale(a.gender) && a.status !== 'cancelled').length;
-
-  const actions: { status: Status; label: string; primary?: boolean }[] =
-    event.status === 'ongoing'
-      ? [{ status: 'ended', label: `신청 마감 (${volEnd(event.volNumber)})` }, { status: 'upcoming', label: '오픈 전으로 되돌리기' }]
-      : event.status === 'ended'
-        ? [{ status: 'ongoing', label: '다시 오픈하기', primary: true }, { status: 'upcoming', label: '오픈 전으로 되돌리기' }]
-        : [{ status: 'ongoing', label: `${event.volNumber} 오픈하기`, primary: true }, { status: 'ended', label: '바로 종료 처리' }];
+  const step = NEXT_STEP[event.status];
+  const blocked = event.status === 'screening' && !event.publishedAt;
 
   return (
     <div className="stack stack--lg">
       <div className="vol-tabs" role="tablist" aria-label="이벤트 회차">
         {events.map((ev) => (
-          <button key={ev.slug} type="button" role="tab" className="chip" aria-selected={ev.slug === selectedSlug}
-            onClick={() => setSelectedSlug(ev.slug)}>
+          <button key={ev.slug} type="button" role="tab" className="chip" aria-selected={ev.slug === slug} onClick={() => setSlug(ev.slug)}>
             {ev.volNumber}
           </button>
         ))}
@@ -141,114 +171,118 @@ export default function EventOpenManagementTab({ onShowToast }: { onShowToast: (
 
       <section className="sheet stack">
         <div className="row row--between row--wrap">
-          <span className={`status-dot ${STATUS_CLASS[event.status]}`}>
-            {event.volNumber} · {STATUS_LABEL[event.status]}
-          </span>
-          <Link href={`/events/${event.slug}`} target="_blank" className="btn btn--quiet btn--sm">
-            <Icon name="external" /> 페이지 열기
+          <h2 className="display">{event.volNumber} · {STAGE_LABEL[event.status]}</h2>
+          <Link href={`/events/${slug}${event.publishedAt ? '/lineup' : ''}`} target="_blank" className="btn btn--quiet btn--sm">
+            <Icon name="external" /> 회원 화면 열기
           </Link>
         </div>
-        <h2 className="display">{event.title}</h2>
-        <p className="muted">
-          {event.status === 'ongoing'
-            ? '지금 누구나 이벤트 페이지에서 신청할 수 있어요.'
-            : event.status === 'ended'
-              ? `카드에 ${volEnd(event.volNumber)}로 표시되고 새 신청은 받지 않아요.`
-              : '오픈 전이에요. 오픈하면 카드가 Now open으로 바뀌고 신청을 받기 시작해요.'}
-        </p>
-        <div className="row row--wrap">
-          {actions.map((a) => (
-            <button key={a.status} type="button" className={`btn ${a.primary ? 'btn--primary' : 'btn--ghost'}`} disabled={isChanging} onClick={() => changeStatus(a.status)}>
-              {a.label}
-            </button>
-          ))}
-        </div>
+        <StageTimeline event={event} />
+        {blocked && <p className="notice notice--info">아래에서 참가자를 선별해 공개하면 회원들이 관심을 보낼 수 있고, 그 뒤에 선택중으로 넘어갈 수 있어요.</p>}
+        {step && (
+          <button type="button" className="btn btn--ghost" disabled={busy || blocked} onClick={advance}>
+            {step.label}
+          </button>
+        )}
+        <p className="hint">마감 시각이 지나면 자동으로 넘어가요. 시각은 이벤트 카드 탭에서 바꿀 수 있어요.</p>
       </section>
 
-      {stats && (
-        <section className="stats">
-          <div className="stat"><div className="stat__label">전체 신청</div><div className="stat__value">{stats.total}<small>명</small></div></div>
-          <div className="stat"><div className="stat__label">남성 (취소 제외 / 정원)</div><div className="stat__value" style={{ color: 'var(--male)' }}>{seats(activeMale, capacity.male)}</div></div>
-          <div className="stat"><div className="stat__label">여성 (취소 제외 / 정원)</div><div className="stat__value" style={{ color: 'var(--female)' }}>{seats(activeFemale, capacity.female)}</div></div>
-          <div className="stat"><div className="stat__label">참석 확정 / 취소</div><div className="stat__value">{stats.confirmed}<small>/ {stats.cancelled}명</small></div></div>
+      <section className="stats">
+        <div className="stat"><div className="stat__label">신청</div><div className="stat__value">{apps.length}<small>명</small></div></div>
+        <div className="stat">
+          <div className="stat__label">남 / 여 {capacity.male !== null || capacity.female !== null ? '(정원)' : ''}</div>
+          <div className="stat__value">
+            <span style={{ color: 'var(--male)' }}>{males.length}</span>
+            {capacity.male !== null && <small>/{capacity.male}</small>} : <span style={{ color: 'var(--female)' }}>{apps.length - males.length}</span>
+            {capacity.female !== null && <small>/{capacity.female}</small>}
+          </div>
+        </div>
+        <div className="stat"><div className="stat__label">선별</div><div className="stat__value">{pickedApps.length}<small>명</small></div></div>
+        <div className="stat"><div className="stat__label">관심 / 매칭</div><div className="stat__value">{board.totalLikes}<small>/ {board.matches.length}쌍</small></div></div>
+      </section>
+
+      {editable && (
+        <section className="panel stack">
+          <h3 className="title">선별 도구</h3>
+          <label className="check">
+            <input type="checkbox" checked={skipNoPhoto} onChange={(e) => applyPhotoFilter(e.target.checked)} />
+            <span>프로필 사진이 없는 사람은 거르기 ({apps.filter((a) => !hasPhoto(a)).length}명)</span>
+          </label>
+          <div className="row row--wrap">
+            {(['male', 'female'] as const).map((g) => (
+              <label key={g} className="row small">
+                {g === 'male' ? '남' : '여'}
+                <input className="input" style={{ width: 88 }} type="number" min={0} inputMode="numeric" value={randomCount[g]}
+                  onChange={(e) => setRandomCount((c) => ({ ...c, [g]: e.target.value }))} aria-label={`${g === 'male' ? '남성' : '여성'} 뽑을 인원`} />
+                명
+              </label>
+            ))}
+            <button type="button" className="btn btn--ghost btn--sm" onClick={pickRandom}>무작위로 뽑기</button>
+            <button type="button" className="btn btn--quiet btn--sm" onClick={() => setPicked(new Set())}>모두 해제</button>
+          </div>
+          <div className="row row--between row--wrap">
+            <span className="small muted">
+              지금 선택: 남 {pickedApps.filter((a) => isMale(a.gender)).length}명, 여 {pickedApps.filter((a) => !isMale(a.gender)).length}명
+            </span>
+            <button type="button" className="btn btn--primary" disabled={busy || pickedApps.length === 0} onClick={publish}>
+              선별 확정하고 공개
+            </button>
+          </div>
         </section>
       )}
 
       <section className="stack">
-        <div className="row row--between row--wrap">
-          <h2 className="title">{event.volNumber} 신청자 ({filtered.length}명)</h2>
-          <div className="toolbar">
-            <label className="visually-hidden" htmlFor="app-search">신청자 검색</label>
-            <input id="app-search" className="input" placeholder="이름, 연락처 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div className="seg seg--sm" role="group" aria-label="성별 필터">
-              {(['all', 'male', 'female'] as const).map((g) => (
-                <button key={g} type="button" aria-pressed={genderFilter === g} onClick={() => setGenderFilter(g)}>
-                  {g === 'all' ? '전체' : g === 'male' ? '남성' : '여성'}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={exportCsv}>
-              <Icon name="download" /> CSV
-            </button>
-          </div>
+        <div className="row row--between">
+          <h3 className="title">신청자 {apps.length}명</h3>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={exportCsv}>
+            <Icon name="download" /> CSV
+          </button>
         </div>
-
-        {filtered.length === 0 ? (
-          <p className="panel center muted">
-            {q || genderFilter !== 'all'
-              ? '조건에 맞는 신청자가 없어요.'
-              : event.status === 'ongoing'
-                ? '아직 신청자가 없어요. 신청이 들어오면 여기에 바로 보여요.'
-                : '이벤트를 오픈하면 신청을 받을 수 있어요.'}
-          </p>
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>신청 일시</th>
-                  <th>이름</th>
-                  <th>연락처</th>
-                  <th>성별 / 나이</th>
-                  <th>상태</th>
-                  <th style={{ textAlign: 'right' }}>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((a) => (
-                  <tr key={a.id}>
-                    <td className="small muted">{a.created_at ? new Date(a.created_at).toLocaleString('ko-KR') : '-'}</td>
-                    <td>
-                      <strong>{a.name}</strong>
-                      {a.memo && <div className="small muted">{a.memo}</div>}
-                    </td>
-                    <td>{a.phone}</td>
-                    <td>
-                      <span className={`tag ${isMale(a.gender) ? 'tag--male' : 'tag--female'}`}>{a.gender || '-'}</span>{' '}
-                      <span className="small muted">{a.age || '-'}</span>
-                    </td>
-                    <td>
-                      <span className={`tag ${APP_STATUS[a.status]?.className || ''}`}>{APP_STATUS[a.status]?.label || a.status}</span>
-                    </td>
-                    <td>
-                      <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        {a.status !== 'confirmed' && (
-                          <button type="button" className="btn btn--success btn--sm" onClick={() => updateApp(a.id, 'confirmed')}>확정</button>
-                        )}
-                        {a.status !== 'cancelled' && (
-                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => updateApp(a.id, 'cancelled')}>취소</button>
-                        )}
-                        <button type="button" className="btn btn--danger btn--sm" onClick={() => deleteApp(a.id, a.name)} aria-label={`${a.name} 신청 삭제`}>
-                          <Icon name="trash" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {apps.length === 0 && <p className="panel center muted">{event.status === 'ongoing' ? '아직 신청자가 없어요.' : '신청자가 없어요.'}</p>}
+        {apps.map((a) => {
+          const disabled = !eligible(a);
+          const partner = matchOf.get(a.id);
+          return (
+            <article key={a.id} className="member" style={disabled ? { opacity: 0.55 } : undefined}>
+              <div className="member__row">
+                <div className="row" style={{ gap: 12, minWidth: 220 }}>
+                  {editable && (
+                    <input type="checkbox" style={{ width: 22, height: 22, accentColor: 'var(--starlight)' }} checked={picked.has(a.id)} disabled={disabled}
+                      onChange={() => toggle(a.id)} aria-label={`${a.name} 선별`} />
+                  )}
+                  <span className="member__avatar">
+                    {a.card?.photos[0] ? <img src={a.card.photos[0]} alt="" /> : <Icon name="user" />}
+                  </span>
+                  <div>
+                    <div className="row row--wrap">
+                      <strong>{a.card?.nickname ?? a.name}</strong>
+                      <span className="muted small">{a.name}</span>
+                      <span className={`tag ${isMale(a.gender) ? 'tag--male' : 'tag--female'}`}>{a.gender}</span>
+                      {a.selected && <span className="tag tag--gold">선별</span>}
+                    </div>
+                    <div className="small muted">{[a.age, a.card?.height && `${a.card.height}cm`, a.card?.location, a.phone].filter(Boolean).join(', ')}</div>
+                  </div>
+                </div>
+                <div className="row row--wrap">
+                  {event.publishedAt && a.selected && <span className="tag">관심 {a.likeCount}</span>}
+                  {partner && <span className="tag tag--aurora">매칭: {partner.nickname} ({partner.name})</span>}
+                  <button type="button" className="btn btn--quiet btn--sm" aria-expanded={expanded === a.id} onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
+                    {expanded === a.id ? '접기' : '한마디'}
+                  </button>
+                  {!event.publishedAt && (
+                    <button type="button" className="btn btn--danger btn--sm" onClick={() => remove(a)} aria-label={`${a.name} 신청 삭제`}>
+                      <Icon name="trash" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {expanded === a.id && (
+                <div className="member__detail">
+                  <p className="memo-quote">{a.memo || '한마디가 없어요.'}</p>
+                </div>
+              )}
+            </article>
+          );
+        })}
       </section>
     </div>
   );

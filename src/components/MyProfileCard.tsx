@@ -1,14 +1,14 @@
 'use client';
 
-import { useRef, useState, type TouchEvent } from 'react';
+import { useRef, useState } from 'react';
 import { ProfileData } from '@/lib/types';
 import { maskPhone } from '@/lib/format';
 import ImageEditorModal from './ImageEditorModal';
+import PhotoCarousel from './PhotoCarousel';
 import { AnimalChoices, HeightInput, LocationPicker } from './onboarding';
 import { Field, Icon, OrbitMark } from './ui';
 
 const MAX_PHOTOS = 3;
-const SWIPE_PX = 40;
 
 interface Props {
   profile: ProfileData;
@@ -37,54 +37,6 @@ async function saveProfile(profile: ProfileData): Promise<ProfileData> {
   ).json();
   if (!result.success) throw new Error(result.error || '저장하지 못했어요.');
   return result.data || profile;
-}
-
-function PhotoCarousel({ photos, alt, index, onIndex, children }: {
-  photos: string[];
-  alt: string;
-  index: number;
-  onIndex: (i: number) => void;
-  children?: React.ReactNode;
-}) {
-  const startX = useRef<number | null>(null);
-  const count = photos.length;
-  const step = (delta: number) => onIndex((index + delta + count) % count);
-
-  const onTouchEnd = (e: TouchEvent) => {
-    if (startX.current === null || count < 2) return;
-    const dx = e.changedTouches[0].clientX - startX.current;
-    if (Math.abs(dx) > SWIPE_PX) step(dx > 0 ? -1 : 1);
-    startX.current = null;
-  };
-
-  if (count === 0) return <div className="ticket__photo">{children}</div>;
-
-  return (
-    <div
-      className="ticket__photo"
-      onTouchStart={(e) => (startX.current = e.touches[0].clientX)}
-      onTouchEnd={onTouchEnd}
-      aria-roledescription="carousel"
-    >
-      <img src={photos[index]} alt={`${alt} ${index + 1}`} />
-      {count > 1 && (
-        <>
-          <button type="button" className="carousel-btn carousel-btn--prev" aria-label="이전 사진" onClick={(e) => { e.stopPropagation(); step(-1); }}>
-            <Icon name="back" />
-          </button>
-          <button type="button" className="carousel-btn carousel-btn--next" aria-label="다음 사진" onClick={(e) => { e.stopPropagation(); step(1); }}>
-            <Icon name="next" />
-          </button>
-          <div className="carousel-dots" aria-hidden="true">
-            {photos.map((p, i) => <span key={p + i} data-active={i === index} />)}
-          </div>
-        </>
-      )}
-      <span className="carousel-count">
-        {index + 1} / {count}
-      </span>
-    </div>
-  );
 }
 
 export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {

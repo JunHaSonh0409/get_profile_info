@@ -1,4 +1,4 @@
-import type { OrbitEvent } from '@/types/event';
+import type { EventStatus, OrbitEvent } from '@/types/event';
 
 export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_txnqmX';
 
@@ -9,21 +9,34 @@ export function volEnd(vol?: string): string {
   return `${v.replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END`;
 }
 
-export const STATUS_LABEL: Record<OrbitEvent['status'], string> = {
+export const STATUS_LABEL: Record<EventStatus, string> = {
   upcoming: '오픈 예정',
   ongoing: '신청 받는 중',
+  screening: '선별 중',
+  choosing: '선택 중',
   ended: '종료',
 };
 
-export const STATUS_CLASS: Record<OrbitEvent['status'], string> = {
+export const STATUS_CLASS: Record<EventStatus, string> = {
   upcoming: 'status--upcoming',
   ongoing: 'status--open',
+  screening: 'status--upcoming',
+  choosing: 'status--open',
   ended: 'status--ended',
 };
 
 /** Large word on the event plate. */
 export function plateHeadline(event: Pick<OrbitEvent, 'status' | 'volNumber'>): string {
-  if (event.status === 'ongoing') return 'Now open';
-  if (event.status === 'ended') return volEnd(event.volNumber);
-  return 'Coming soon';
+  switch (event.status) {
+    case 'ongoing':
+      return 'Now open';
+    case 'screening':
+      return 'Lineup';
+    case 'choosing':
+      return 'Your pick';
+    case 'ended':
+      return volEnd(event.volNumber);
+    default:
+      return 'Coming soon';
+  }
 }

@@ -5,7 +5,16 @@ import Link from 'next/link';
 import type { OrbitEvent } from '@/types/event';
 import { KAKAO_CHANNEL_URL } from '@/lib/eventLabels';
 import EventPlate from './EventPlate';
+import { StageTimeline } from './eventBoard';
 import { Icon } from './ui';
+
+const CTA_LABEL: Record<OrbitEvent['status'], string> = {
+  upcoming: '이벤트 자세히 보기',
+  ongoing: '참가 신청하기',
+  screening: '선별된 사람들 보기',
+  choosing: '선택 페이지 보기',
+  ended: '결과 보기',
+};
 
 export default function EventsSection({ onGoToProfile }: { onGoToProfile: () => void }) {
   const [events, setEvents] = useState<OrbitEvent[] | null>(null);
@@ -65,13 +74,14 @@ export default function EventsSection({ onGoToProfile }: { onGoToProfile: () => 
         <p className="muted">
           {event.description || '취향과 가치관을 바탕으로 준비 중인 매칭 이벤트예요. 프로필을 미리 등록해두면 오픈 소식을 놓치지 않아요.'}
         </p>
+        {event.status !== 'upcoming' && <StageTimeline event={event} />}
         <ul className="stack small muted" style={{ listStyle: 'none', gap: 6 }}>
-          <li className="row"><Icon name="star" /> 이상형 조건을 바탕으로 초대하는 프라이빗 모임</li>
           <li className="row"><Icon name="user" /> 프로필을 등록한 회원만 신청할 수 있어요</li>
-          <li className="row"><Icon name="calendar" /> 일정과 장소는 오픈할 때 함께 안내해요</li>
+          <li className="row"><Icon name="star" /> 관심과 선택은 각각 한 번, 1:1 만남이 원칙이에요</li>
+          <li className="row"><Icon name="lock" /> 매칭 전까지 실명과 연락처는 공개되지 않아요</li>
         </ul>
-        <Link href={href} className="btn btn--primary btn--block">
-          {event.status === 'ongoing' ? '참가 신청하기' : '이벤트 자세히 보기'}
+        <Link href={event.status === 'screening' || event.status === 'choosing' ? `${href}/lineup` : href} className="btn btn--primary btn--block">
+          {CTA_LABEL[event.status]}
         </Link>
         {event.status === 'upcoming' && (
           <a className="btn btn--ghost btn--block" href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer">

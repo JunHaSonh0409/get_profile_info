@@ -19,6 +19,13 @@ export function errorMessage(err: unknown, fallback = '서버 오류가 발생�
   return err instanceof Error ? err.message : fallback;
 }
 
+/** Error response that keeps a 4xx `status` carried by expected errors (e.g. FlowError); 500 otherwise. */
+export function failWith(err: unknown, fallback?: string) {
+  const status = typeof (err as { status?: unknown })?.status === 'number' ? (err as { status: number }).status : 500;
+  if (status >= 500) console.error(err);
+  return fail(errorMessage(err, fallback), status);
+}
+
 export const MEMBER_LOGIN_REQUIRED = '로그인이 필요합니다. 휴대폰 인증 후 다시 시도해주세요.';
 
 /** The verified phone from the member session, or a 401 response to return as-is. */

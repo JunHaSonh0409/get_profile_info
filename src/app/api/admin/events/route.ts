@@ -1,79 +1,58 @@
-import { NextResponse } from 'next/server';
-import { checkAdminAuth } from '@/lib/adminAuth';
-import { getAllEvents, upsertEvent, getLocalEvents, saveLocalEvents } from '@/lib/events';
-import { supabase } from '@/lib/supabase';
+import type { OrbitEvent } from '@/types/event';
+import { createEvent, deleteEvent, getEventBySlug, updateEvent } from '@/lib/events';
+import { resolveEvents } from '@/lib/eventFlow';
+import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
-export async function GET() {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+export async function GET(request: Request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
   try {
-    const events = await getAllEvents();
-    return NextResponse.json({ success: true, events });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to load events' },
-      { status: 500 }
-    );
+    return json({ success: true, events: await resolveEvents() });
+  } catch (err) {
+    return failWith(err, '이벤트를 불러오지 못했어요.');
   }
 }
 
+/** Creates or edits an event card. Stage changes go through /status and /selection, never here. */
 export async function POST(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+  const denied = requireAdmin(request);
+  if (denied) return denied;
   try {
-    const body = await request.json();
-    if (!body.slug) {
-      return NextResponse.json(
-        { success: false, error: 'Slug (e.g. vol01) is required' },
-        { status: 400 }
-      );
-    }
+    const body = (await request.json()) as Partial<OrbitEvent>;
+    const slug = String(body.slug || '').toLowerCase();
+    if (!/^[a-z0-9_-]{2,40}$/.test(slug)) return fail('페이지 주소는 영문 소문자, 숫자, -, _ 로 2~40자예요.', 400);
+    if (!body.title?.trim() || !body.volNumber?.trim()) return fail('회차와 제목은 꼭 입력해야 해요.', 400);
 
-    const updatedEvent = await upsertEvent(body);
-    return NextResponse.json({ success: true, event: updatedEvent });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to save event' },
-      { status: 500 }
-    );
+    const fields: Partial<OrbitEvent> = {
+      volNumber: body.volNumber.trim(),
+      title: body.title.trim(),
+      subtitle: body.subtitle ?? '',
+      imageUrl: body.imageUrl ?? '',
+      date: body.date ?? '',
+      location: body.location ?? '',
+      capacity: body.capacity ?? '',
+      content: body.content ?? '',
+      description: body.content ?? body.description ?? '',
+      applyEndsAt: body.applyEndsAt || null,
+      likeEndsAt: body.likeEndsAt || null,
+      chooseEndsAt: body.chooseEndsAt || null,
+    };
+    const event = (await getEventBySlug(slug)) ? await updateEvent(slug, fields) : await createEvent({ ...fields, slug });
+    return json({ success: true, event });
+  } catch (err) {
+    return failWith(err, '이벤트를 저장하지 못했어요.');
   }
 }
 
 export async function DELETE(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+  const slug = new URL(request.url).searchParams.get('slug');
+  if (!slug) return fail('slug가 필요해요.', 400);
   try {
-    const { searchParams } = new URL(request.url);
-    const slug = searchParams.get('slug');
-    if (!slug) {
-      return NextResponse.json({ success: false, error: 'Slug is required' }, { status: 400 });
-    }
-
-    const events = getLocalEvents().filter((e) => e.slug.toLowerCase() !== slug.toLowerCase());
-    saveLocalEvents(events);
-
-    if (supabase) {
-      try {
-        await supabase.from('events').delete().eq('slug', slug);
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    return NextResponse.json({ success: true, message: 'Event deleted successfully' });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to delete event' },
-      { status: 500 }
-    );
+    await deleteEvent(slug);
+    return json({ success: true });
+  } catch (err) {
+    return failWith(err, '이벤트를 삭제하지 못했어요.');
   }
 }

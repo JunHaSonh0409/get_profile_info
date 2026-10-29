@@ -1,21 +1,34 @@
+/** Profile fields a member may see about another member: no real name, no phone. */
+export interface PublicCard {
+  /** Application id for lineup cards, like id for "who liked me" cards. */
+  id: string;
+  nickname: string;
+  gender: string;
+  age: string;
+  height: number;
+  location: string;
+  mbti: string;
+  photos: string[];
+  preferredAnimals: string[];
+  preferredAppearanceDetail: string;
+  preferredPartnerDetail: string;
+  selfIntro: string;
+  /** The applicant's message written when applying to the event. */
+  memo: string;
+}
+
+/** Admin view of an application (includes name and phone). */
 export interface EventApplication {
   id: string;
-  eventSlug: string; // e.g. 'vol01', 'vol02'
-  volNumber: string; // e.g. 'VOL.01'
+  eventSlug: string;
+  volNumber: string;
+  profileId: string | null;
   name: string;
   phone: string;
   gender: string;
   age: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  memo?: string;
+  memo: string;
+  selected: boolean;
   created_at: string;
-}
-
-export interface EventApplicationStats {
-  total: number;
-  male: number;
-  female: number;
-  confirmed: number;
-  pending: number;
-  cancelled: number;
+  card: PublicCard | null;
 }

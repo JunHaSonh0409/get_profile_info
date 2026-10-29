@@ -1,38 +1,18 @@
-import { NextResponse } from 'next/server';
-import { checkAdminAuth } from '@/lib/adminAuth';
-import { upsertEvent, getEventBySlug } from '@/lib/events';
+import type { EventStatus } from '@/types/event';
+import { adminSetStatus } from '@/lib/eventFlow';
+import { STAGE_LABEL, STAGE_ORDER } from '@/lib/eventStages';
+import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
+/** Manual stage change (deadlines also move events forward automatically). */
 export async function PATCH(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+  const denied = requireAdmin(request);
+  if (denied) return denied;
   try {
-    const body = await request.json();
-    const { slug, status } = body;
-
-    if (!slug || !status) {
-      return NextResponse.json({ success: false, error: 'slug and status are required' }, { status: 400 });
-    }
-
-    const event = await getEventBySlug(slug);
-    if (!event) {
-      return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
-    }
-
-    const updated = await upsertEvent({
-      ...event,
-      slug,
-      status,
-    });
-
-    return NextResponse.json({
-      success: true,
-      event: updated,
-      message: `${updated.volNumber} 이벤트 상태가 [${status === 'ongoing' ? '공식 오픈' : status === 'ended' ? '종료' : '오픈 대기'}]으로 변경되었습니다.`,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed' }, { status: 500 });
+    const { slug, status } = await request.json();
+    if (!slug || !STAGE_ORDER.includes(status)) return fail('slug와 올바른 단계가 필요해요.', 400);
+    const event = await adminSetStatus(slug, status as EventStatus);
+    return json({ success: true, event, message: `${event.volNumber} 이벤트를 [${STAGE_LABEL[event.status]}] 단계로 바꿨어요.` });
+  } catch (err) {
+    return failWith(err, '단계를 바꾸지 못했어요.');
   }
 }

@@ -86,6 +86,65 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
+### 4. 인증 관련 환경변수
+
+| 변수 | 필수 | 설명 |
+| --- | --- | --- |
+| `MEMBER_SESSION_SECRET` | ✅ | 회원 세션 쿠키(`orbit_member_session`) HMAC 서명 키. 없으면 로그인이 503으로 막힙니다. `ADMIN_SECRET_KEY`와 다른 값을 쓰세요. |
+| `OCTOMO_API_KEY` | production ✅ | 문자 인증 확인용. 비어 있으면 **개발 환경(`NODE_ENV !== production`)에서만** 모든 번호가 데모 통과하고, production에서는 인증이 503으로 거부됩니다. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_SECRET_KEY` | ✅ (관리자) | 관리자 로그인. 하나라도 없으면 관리자 로그인이 막힙니다. |
+
+랜덤 시크릿 생성: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+문자 인증(`/api/verify/check`)이 통과하면 서버가 HttpOnly·SameSite=Lax(production에서는 Secure) 서명 쿠키를 발급하고,
+`GET/POST/PUT /api/profile`과 `/api/upload`는 이 쿠키의 전화번호만 사용합니다(클라이언트가 보낸 phone/id는 무시, 세션이 없으면 401).
+로그아웃은 `POST /api/member/logout`.
+
+### 5. 데이터베이스 잠금 (필수)
+
+`supabase/migrations/20261028_event_stages.sql`을 SQL Editor에서 한 번 실행하세요. 이벤트 단계용 컬럼·테이블을 만들고,
+**모든 테이블을 서버 전용으로 잠급니다**(anon 정책 삭제, 프로필 Realtime 방송 중단). 실행 후에는 `SUPABASE_SERVICE_ROLE_KEY`가
+반드시 서버 환경변수에 있어야 합니다. 공개 anon 키로는 더 이상 프로필·신청자를 읽거나 쓸 수 없어요.
+
+| 변수 | 필수 | 설명 |
+| --- | --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | 서버 전용 키(RLS 우회). 절대 `NEXT_PUBLIC_`으로 노출하지 마세요. |
+| `NEXT_PUBLIC_SITE_URL` | 권장 | 알림톡 버튼 링크의 기준 주소. 기본값 `https://get-profile-info.vercel.app` |
+| `CRON_SECRET` | 권장 | Vercel Cron이 `/api/cron/events`를 부를 때 쓰는 Bearer 토큰. |
+
+## 🗓️ 이벤트 진행 방식
+
+`오픈 예정 → 진행중(신청, 기본 3일) → 선별중(선별 공개 후 관심 보내기, 기본 2일) → 선택중(기본 1일) → 종료`
+
+- **진행중**: 로그인하고 프로필이 있는 회원만, 한마디(30자 이상)로 신청합니다. 이름·연락처·성별·나이는 프로필에서 자동으로 들어갑니다.
+- **선별중**: 관리자 > 진행·선별 탭에서 사진 없는 사람 거르기, 남·여 인원 무작위 뽑기, 직접 체크로 선별한 뒤 **선별 확정하고 공개**합니다(한 번만).
+  공개되면 `/events/{slug}/lineup`에서 회원들이 이성 참가자 중 **한 명에게만** '관심있어요'를 보낼 수 있습니다.
+  선별된 사람은 같은 페이지에서 **자신에게 관심을 보낸 사람의 프로필**(실명·연락처 제외)을 바로 확인합니다. 페이지를 켜 두면 30초마다 새 관심이 반영됩니다.
+- **선택중**: 선별된 사람은 자신에게 관심을 보낸 사람 중 **한 명**을 고릅니다.
+- **종료**: 서로 연결된 두 사람에게 상대의 전화번호가 담긴 카드가 선택 페이지와 알림톡으로 전달됩니다.
+- 이벤트 카드 탭의 **단계 마감 시각**이 지나면 다음 단계로 자동으로 넘어갑니다. 페이지가 조회될 때마다 확인하고,
+  Vercel Cron(`vercel.json`, 하루 1회)이 보조로 돌립니다. 선별중 → 선택중은 선별을 공개한 뒤에만 넘어갑니다.
+
+### 카카오 알림톡 (SOLAPI)
+
+**매칭 결과만** 카카오톡 알림톡으로 보냅니다(관심 도착은 웹사이트에서만 확인). 설정이 없으면 발송만 건너뛰고 나머지 흐름은 그대로 동작합니다.
+
+1. 카카오톡 채널을 비즈니스 채널로 만들고 SOLAPI 콘솔에서 연동해 채널 ID(pfId)를 받습니다.
+2. 아래 템플릿을 등록해 카카오 검수를 받습니다(정보성 메시지만 승인되며, 광고 문구를 넣으면 반려됩니다). 변수 이름은 코드와 같아야 합니다.
+3. 환경변수 `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_PF_ID`, `SOLAPI_TEMPLATE_MATCH`를 넣습니다.
+   `SOLAPI_SENDER`(등록된 발신번호)를 넣으면 알림톡 실패 시 문자로 대체 발송됩니다.
+
+**매칭 결과 템플릿 (`SOLAPI_TEMPLATE_MATCH`)**
+```
+[Orbit] #{nickname}님, #{event} 매칭이 성사되었어요.
+
+상대: #{partner}
+연락처: #{partner_phone}
+
+먼저 반갑게 인사를 건네보세요.
+```
+버튼(웹링크): `#{link}`
+
 ---
 
 ## ☁️ Vercel 배포 가이드
@@ -102,9 +161,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
    - 해당 GitHub 저장소를 선택하여 `Import`
 
 3. **환경 변수(Environment Variables) 등록**
-   Vercel 대시보드의 **Settings -> Environment Variables**에 아래 2가지 변수를 추가합니다:
+   Vercel 대시보드의 **Settings -> Environment Variables**에 아래 변수를 추가합니다:
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://your-project-id.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-anon-key-here`
+   - `MEMBER_SESSION_SECRET`, `OCTOMO_API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SECRET_KEY` (위 "인증 관련 환경변수" 참고)
 
 4. **Deploy 버튼 클릭**
    - 1분 안에 전 세계 CDN에 최적화된 URL이 발급됩니다!

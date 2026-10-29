@@ -1,772 +1,289 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { OrbitEvent } from '@/types/event';
-import { EventApplication, EventApplicationStats } from '@/types/application';
+import type { EventStatus, OrbitEvent } from '@/types/event';
+import type { EventApplication } from '@/types/application';
+import { parseCapacity } from '@/lib/eventCapacity';
+import { STAGE_LABEL } from '@/lib/eventStages';
+import { downloadCsv, today } from '@/lib/csv';
+import { StageTimeline } from '@/components/eventBoard';
+import { Icon } from '@/components/ui';
 
-interface Props {
-  onShowToast: (msg: string) => void;
+type Applicant = EventApplication & { likeCount: number };
+interface Board {
+  event: OrbitEvent;
+  applications: Applicant[];
+  totalLikes: number;
+  matches: { applicationId: string; partner: { nickname: string; name: string; phone: string } | null }[];
 }
 
-export default function EventOpenManagementTab({ onShowToast }: Props) {
+const isMale = (g: string) => g === '남성' || g === 'male';
+const hasPhoto = (a: Applicant) => Boolean(a.card?.photos.length);
+
+/** Unbiased random sample using the browser's CSPRNG. */
+function sample<T>(items: T[], n: number): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, Math.max(0, n));
+}
+
+const NEXT_STEP: Partial<Record<EventStatus, { to: EventStatus; label: string; confirm: string }>> = {
+  upcoming: { to: 'ongoing', label: '진행중으로 열기 (신청 시작)', confirm: '신청을 받기 시작할까요?' },
+  ongoing: { to: 'screening', label: '신청 마감하고 선별중으로', confirm: '신청을 마감할까요? 이후로는 신청할 수 없어요.' },
+  screening: { to: 'choosing', label: '관심 마감하고 선택중으로', confirm: '관심 보내기를 마감하고 선택 단계로 넘길까요?' },
+  choosing: { to: 'ended', label: '종료하고 매칭 공개', confirm: '이벤트를 종료할까요? 매칭된 두 사람에게 서로의 연락처가 전달돼요.' },
+};
+
+export default function EventOpenManagementTab({ onShowToast }: { onShowToast: (msg: string) => void }) {
   const [events, setEvents] = useState<OrbitEvent[]>([]);
-  const [selectedSlug, setSelectedSlug] = useState<string>('vol01');
-  const [isLoading, setIsLoading] = useState(true);
+  const [slug, setSlug] = useState('');
+  const [board, setBoard] = useState<Board | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // Applicants & Stats
-  const [applications, setApplications] = useState<EventApplication[]>([]);
-  const [stats, setStats] = useState<EventApplicationStats | null>(null);
-  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
+  // Selection draft (only while screening and not yet published)
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [skipNoPhoto, setSkipNoPhoto] = useState(true);
+  const [randomCount, setRandomCount] = useState({ male: '', female: '' });
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedSlug) {
-      fetchApplications(selectedSlug);
-    }
-  }, [selectedSlug]);
+    fetch('/api/admin/events', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        setEvents(data.events || []);
+        setSlug((s) => s || data.events?.[0]?.slug || '');
+      })
+      .catch(() => onShowToast('이벤트 목록을 불러오지 못했어요.'));
+  }, [onShowToast]);
 
-  const fetchEvents = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/admin/events', { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.events)) {
-        setEvents(data.events);
-        if (data.events.length > 0 && !selectedSlug) {
-          setSelectedSlug(data.events[0].slug);
-        }
-      }
-    } catch (e) {
-      onShowToast('이벤트 목록을 불러오지 못했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
+  const load = useCallback(
+    (target: string) =>
+      fetch(`/api/admin/events/applications?slug=${encodeURIComponent(target)}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.success) throw new Error(data.error);
+          setBoard(data);
+          setPicked(new Set((data.applications as Applicant[]).filter((a) => a.selected).map((a) => a.id)));
+          const cap = parseCapacity(data.event.capacity);
+          setRandomCount({ male: cap.male?.toString() ?? '', female: cap.female?.toString() ?? '' });
+        })
+        .catch((err) => onShowToast(err instanceof Error && err.message ? err.message : '신청자 목록을 불러오지 못했어요.')),
+    [onShowToast]
+  );
+
+  useEffect(() => {
+    if (slug) void load(slug);
+  }, [slug, load]);
+
+  const apps = useMemo(() => board?.applications ?? [], [board]);
+  const editable = board?.event.status === 'screening' && !board.event.publishedAt;
+  const eligible = (a: Applicant) => !skipNoPhoto || hasPhoto(a);
+
+  if (!board) return <p className="muted">이벤트를 불러오는 중이거나 등록된 이벤트가 없어요.</p>;
+  const { event } = board;
+  const capacity = parseCapacity(event.capacity);
+  const males = apps.filter((a) => isMale(a.gender));
+  const pickedApps = apps.filter((a) => picked.has(a.id));
+  const matchOf = new Map(board.matches.map((m) => [m.applicationId, m.partner]));
+
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const pickRandom = () => {
+    const m = Number(randomCount.male) || 0;
+    const f = Number(randomCount.female) || 0;
+    const pool = apps.filter(eligible);
+    const chosen = [...sample(pool.filter((a) => isMale(a.gender)), m), ...sample(pool.filter((a) => !isMale(a.gender)), f)];
+    setPicked(new Set(chosen.map((a) => a.id)));
+    const short = [m > chosen.filter((a) => isMale(a.gender)).length && '남성', f > chosen.filter((a) => !isMale(a.gender)).length && '여성'].filter(Boolean);
+    onShowToast(short.length ? `${short.join('·')} 후보가 부족해서 있는 만큼만 뽑았어요.` : `남 ${m}명, 여 ${f}명을 무작위로 뽑았어요.`);
   };
 
-  const fetchApplications = async (slug: string) => {
-    try {
-      const res = await fetch(`/api/admin/events/applications?slug=${slug}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success) {
-        setApplications(data.applications || []);
-        setStats(data.stats || null);
-      }
-    } catch (e) {
-      onShowToast('신청자 목록을 불러오지 못했습니다.');
-    }
+  const applyPhotoFilter = (on: boolean) => {
+    setSkipNoPhoto(on);
+    if (on) setPicked((prev) => new Set([...prev].filter((id) => hasPhoto(apps.find((a) => a.id === id)!))));
   };
 
-  const currentEvent = events.find((e) => e.slug === selectedSlug) || events[0];
-
-  // Toggle Event Open Status
-  const handleToggleStatus = async (newStatus: 'upcoming' | 'ongoing' | 'ended') => {
-    if (!currentEvent) return;
-    setIsTogglingStatus(true);
+  const request = async (url: string, init: RequestInit, success: string) => {
+    setBusy(true);
     try {
-      const res = await fetch('/api/admin/events/status', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: currentEvent.slug, status: newStatus }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        onShowToast(data.message || '상태가 변경되었습니다.');
-        // Update local state
-        setEvents((prev) =>
-          prev.map((ev) => (ev.slug === currentEvent.slug ? { ...ev, status: newStatus } : ev))
-        );
-      } else {
-        alert(data.error || '상태 변경 실패');
-      }
+      const data = await (await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } })).json();
+      if (!data.success) throw new Error(data.error);
+      onShowToast(data.message || success);
+      if (data.event) setEvents((prev) => prev.map((e) => (e.slug === data.event.slug ? data.event : e)));
+      await load(slug);
     } catch (err) {
-      alert('네트워크 오류');
+      onShowToast(err instanceof Error && err.message ? err.message : '요청을 처리하지 못했어요.');
     } finally {
-      setIsTogglingStatus(false);
+      setBusy(false);
     }
   };
 
-  // Change applicant status
-  const handleUpdateAppStatus = async (id: string, status: 'confirmed' | 'cancelled') => {
-    try {
-      const res = await fetch('/api/admin/events/applications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
-      });
-      if (res.ok) {
-        onShowToast(`신청자 상태가 [${status === 'confirmed' ? '참석 확정' : '신청 취소'}]로 변경되었습니다.`);
-        fetchApplications(selectedSlug);
-      }
-    } catch (e) {
-      alert('변경 실패');
-    }
+  const advance = () => {
+    const step = NEXT_STEP[event.status];
+    if (step && confirm(step.confirm)) void request('/api/admin/events/status', { method: 'PATCH', body: JSON.stringify({ slug, status: step.to }) }, '단계를 바꿨어요.');
   };
 
-  // Delete applicant
-  const handleDeleteApp = async (id: string, name: string) => {
-    if (!confirm(`${name} 님의 신청 내역을 삭제하시겠습니까?`)) return;
-    try {
-      const res = await fetch(`/api/admin/events/applications?id=${id}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        onShowToast('신청 내역이 삭제되었습니다.');
-        fetchApplications(selectedSlug);
-      }
-    } catch (e) {
-      alert('삭제 실패');
-    }
+  const publish = () => {
+    if (pickedApps.length === 0) return onShowToast('선별할 사람을 1명 이상 골라주세요.');
+    const m = pickedApps.filter((a) => isMale(a.gender)).length;
+    if (!confirm(`남 ${m}명, 여 ${pickedApps.length - m}명을 선별해 공개할까요? 공개하면 모든 회원이 볼 수 있고, 선별은 바꿀 수 없어요.`)) return;
+    void request('/api/admin/events/selection', { method: 'POST', body: JSON.stringify({ slug, ids: [...picked] }) }, '선별을 공개했어요. 이제 회원들이 관심을 보낼 수 있어요.');
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (applications.length === 0) {
-      alert('다운로드할 신청자가 없습니다.');
-      return;
-    }
-
-    const headers = ['신청일시', '이벤트볼륨', '이름', '연락처', '성별', '나이', '상태'];
-    const rows = applications.map((a) => [
-      a.created_at ? new Date(a.created_at).toLocaleString('ko-KR') : '',
-      a.volNumber,
-      `"${a.name}"`,
-      a.phone,
-      a.gender || '-',
-      a.age || '-',
-      a.status === 'confirmed' ? '참석확정' : a.status === 'cancelled' ? '취소됨' : '대기',
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `orbit_${selectedSlug}_applicants_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    onShowToast('신청자 명단이 CSV 파일로 다운로드되었습니다.');
+  const remove = (a: Applicant) => {
+    if (confirm(`${a.name}님의 신청을 삭제할까요?`)) void request(`/api/admin/events/applications?id=${encodeURIComponent(a.id)}`, { method: 'DELETE' }, '신청을 삭제했어요.');
   };
 
-  // Filtered applicants
-  const filteredApps = applications.filter((a) => {
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const matchName = a.name.toLowerCase().includes(q);
-      const matchPhone = a.phone.includes(q);
-      if (!matchName && !matchPhone) return false;
-    }
-    if (genderFilter !== 'all') {
-      const isMale = a.gender === '남성' || a.gender === 'male';
-      if (genderFilter === 'male' && !isMale) return false;
-      if (genderFilter === 'female' && isMale) return false;
-    }
-    return true;
-  });
+  const exportCsv = () => {
+    if (apps.length === 0) return onShowToast('내려받을 신청자가 없어요.');
+    downloadCsv(
+      `orbit_${slug}_applicants_${today()}.csv`,
+      ['신청일시', '이름', '닉네임', '연락처', '성별', '나이', '사진수', '선별', '받은관심', '매칭상대', '한마디'],
+      apps.map((a) => [
+        new Date(a.created_at).toLocaleString('ko-KR'), a.name, a.card?.nickname, a.phone, a.gender, a.age, a.card?.photos.length ?? 0,
+        a.selected ? 'O' : '', a.likeCount, matchOf.get(a.id)?.name ?? '', a.memo,
+      ])
+    );
+  };
+
+  const step = NEXT_STEP[event.status];
+  const blocked = event.status === 'screening' && !event.publishedAt;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Banner */}
-      <div
-        style={{
-          background: 'rgba(30, 41, 59, 0.4)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '16px',
-          padding: '20px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🚀</span> 이벤트 오픈 및 관리 (Open / End 결정 및 신청자 관리)
-          </h2>
-          <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-            이벤트의 공식 오픈(<strong style={{ color: '#34d399' }}>NOW OPEN</strong>) 및 마감/종료(<strong style={{ color: '#cbd5e1' }}>VOL.1 END</strong>) 상태를 결정하고, 실시간 신청자 명단을 관리합니다.
-          </p>
-        </div>
-
-        {/* Volume Selector Pills */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {events.map((ev) => {
-            const isSelected = ev.slug === selectedSlug;
-            const isOpen = ev.status === 'ongoing';
-            return (
-              <button
-                key={ev.id || ev.slug}
-                type="button"
-                onClick={() => setSelectedSlug(ev.slug)}
-                style={{
-                  background: isSelected
-                    ? isOpen
-                      ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
-                      : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
-                    : 'rgba(255, 255, 255, 0.06)',
-                  color: isSelected ? '#fff' : '#94a3b8',
-                  border: isSelected
-                    ? `1px solid ${isOpen ? '#34d399' : '#38bdf8'}`
-                    : '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '10px',
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s',
-                  boxShadow: isSelected ? '0 4px 14px rgba(0,0,0,0.4)' : 'none',
-                }}
-              >
-                <span>{isOpen ? '🟢' : '⏳'}</span>
-                {ev.volNumber}
-              </button>
-            );
-          })}
-        </div>
+    <div className="stack stack--lg">
+      <div className="vol-tabs" role="tablist" aria-label="이벤트 회차">
+        {events.map((ev) => (
+          <button key={ev.slug} type="button" role="tab" className="chip" aria-selected={ev.slug === slug} onClick={() => setSlug(ev.slug)}>
+            {ev.volNumber}
+          </button>
+        ))}
       </div>
 
-      {currentEvent && (
-        <>
-          {/* Event Open Status Master Control Card */}
-          <div
-            style={{
-              background: currentEvent.status === 'ongoing' ? 'rgba(6, 78, 59, 0.25)' : 'rgba(30, 41, 59, 0.5)',
-              border: `1.5px solid ${currentEvent.status === 'ongoing' ? 'rgba(52, 211, 153, 0.4)' : 'rgba(255, 255, 255, 0.1)'}`,
-              borderRadius: '20px',
-              padding: '24px 22px',
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '20px',
-              boxShadow: currentEvent.status === 'ongoing' ? '0 10px 30px rgba(16, 185, 129, 0.15)' : 'none',
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <span
-                  style={{
-                    background: '#ef4444',
-                    color: '#fff',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    letterSpacing: '1px',
-                  }}
-                >
-                  {currentEvent.volNumber}
-                </span>
+      <section className="sheet stack">
+        <div className="row row--between row--wrap">
+          <h2 className="display">{event.volNumber} · {STAGE_LABEL[event.status]}</h2>
+          <Link href={`/events/${slug}${event.publishedAt ? '/lineup' : ''}`} target="_blank" className="btn btn--quiet btn--sm">
+            <Icon name="external" /> 회원 화면 열기
+          </Link>
+        </div>
+        <StageTimeline event={event} />
+        {blocked && <p className="notice notice--info">아래에서 참가자를 선별해 공개하면 회원들이 관심을 보낼 수 있고, 그 뒤에 선택중으로 넘어갈 수 있어요.</p>}
+        {step && (
+          <button type="button" className="btn btn--ghost" disabled={busy || blocked} onClick={advance}>
+            {step.label}
+          </button>
+        )}
+        <p className="hint">마감 시각이 지나면 자동으로 넘어가요. 시각은 이벤트 카드 탭에서 바꿀 수 있어요.</p>
+      </section>
 
-                <span
-                  style={{
-                    background:
-                      currentEvent.status === 'ongoing'
-                        ? 'rgba(16, 185, 129, 0.2)'
-                        : currentEvent.status === 'ended'
-                        ? 'rgba(148, 163, 184, 0.2)'
-                        : 'rgba(245, 158, 11, 0.2)',
-                    border: `1px solid ${
-                      currentEvent.status === 'ongoing'
-                        ? '#34d399'
-                        : currentEvent.status === 'ended'
-                        ? '#94a3b8'
-                        : '#fbbf24'
-                    }`,
-                    color:
-                      currentEvent.status === 'ongoing'
-                        ? '#34d399'
-                        : currentEvent.status === 'ended'
-                        ? '#cbd5e1'
-                        : '#fbbf24',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: '999px',
-                  }}
-                >
-                  {currentEvent.status === 'ongoing'
-                    ? '● 현재 공식 오픈 상태 (NOW OPEN)'
-                    : currentEvent.status === 'ended'
-                    ? `🏁 이벤트 종료 (${(currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END)`
-                    : '● 오픈 대기 (Coming Soon)'}
-                </span>
-
-                <Link
-                  href={`/events/${currentEvent.slug}`}
-                  target="_blank"
-                  style={{
-                    fontSize: '12px',
-                    color: '#60a5fa',
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <span>↗</span> 이벤트 페이지 미리보기 (/events/{currentEvent.slug})
-                </Link>
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc', margin: '0 0 4px' }}>
-                {currentEvent.title}
-              </h3>
-              <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
-                {currentEvent.status === 'ongoing'
-                  ? '공식 오픈되어 홈페이지 카드가 [NOW OPEN]으로 표시되며, 누구나 카드를 눌러 참가 신청할 수 있습니다.'
-                  : currentEvent.status === 'ended'
-                  ? `이벤트가 종료되어 홈페이지 카드가 [${(currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.').toUpperCase()} END]로 표시되며 신규 참가 신청이 마감되었습니다.`
-                  : '오픈 전 상태입니다. [공식 오픈하기] 버튼을 누르면 홈페이지 카드의 comming soon이 [NOW OPEN]으로 변경되고 신청이 활성화됩니다.'}
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {currentEvent.status === 'ongoing' ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('upcoming')}
-                    style={{
-                      background: 'rgba(245, 158, 11, 0.15)',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      color: '#fbbf24',
-                      borderRadius: '12px',
-                      padding: '12px 20px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ⏸️ 오픈 일시정지 (Coming Soon으로 전환)
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('ended')}
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      border: '1px solid rgba(239, 68, 68, 0.35)',
-                      color: '#f87171',
-                      borderRadius: '12px',
-                      padding: '12px 20px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🏁 이벤트 마감/종료 ({((currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END 전환)
-                  </button>
-                </>
-              ) : currentEvent.status === 'ended' ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('ongoing')}
-                    style={{
-                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '12px 24px',
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span>🟢</span> 다시 공식 오픈하기 (NOW OPEN)
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('upcoming')}
-                    style={{
-                      background: 'rgba(245, 158, 11, 0.15)',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      color: '#fbbf24',
-                      borderRadius: '12px',
-                      padding: '12px 20px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ⏸️ 오픈 대기 상태로 되돌리기 (Coming Soon)
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('ongoing')}
-                    style={{
-                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '12px 24px',
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span>🟢</span> {currentEvent.volNumber} 공식 오픈하기 (NOW OPEN)
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isTogglingStatus}
-                    onClick={() => handleToggleStatus('ended')}
-                    style={{
-                      background: 'rgba(148, 163, 184, 0.15)',
-                      border: '1px solid rgba(148, 163, 184, 0.35)',
-                      color: '#94a3b8',
-                      borderRadius: '12px',
-                      padding: '12px 20px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🏁 이벤트 종료 상태로 변경 ({((currentEvent.volNumber || 'VOL.1').trim().replace(/vol\.?\s*0*/i, 'VOL.')).toUpperCase()} END)
-                  </button>
-                </>
-              )}
-            </div>
+      <section className="stats">
+        <div className="stat"><div className="stat__label">신청</div><div className="stat__value">{apps.length}<small>명</small></div></div>
+        <div className="stat">
+          <div className="stat__label">남 / 여 {capacity.male !== null || capacity.female !== null ? '(정원)' : ''}</div>
+          <div className="stat__value">
+            <span style={{ color: 'var(--male)' }}>{males.length}</span>
+            {capacity.male !== null && <small>/{capacity.male}</small>} : <span style={{ color: 'var(--female)' }}>{apps.length - males.length}</span>
+            {capacity.female !== null && <small>/{capacity.female}</small>}
           </div>
+        </div>
+        <div className="stat"><div className="stat__label">선별</div><div className="stat__value">{pickedApps.length}<small>명</small></div></div>
+        <div className="stat"><div className="stat__label">관심 / 매칭</div><div className="stat__value">{board.totalLikes}<small>/ {board.matches.length}쌍</small></div></div>
+      </section>
 
-          {/* Stats Bar */}
-          {stats && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '12px',
-              }}
-            >
-              <div
-                style={{
-                  background: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '14px',
-                  padding: '16px 18px',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>👥 총 신청자 수</div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#f8fafc', marginTop: '4px' }}>
-                  {stats.total}{' '}
-                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>명</span>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '14px',
-                  padding: '16px 18px',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>🚻 성별 분포 (남:여)</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#f8fafc', marginTop: '4px' }}>
-                  <span style={{ color: '#60a5fa' }}>남 {stats.male}</span> : <span style={{ color: '#f472b6' }}>여 {stats.female}</span>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '14px',
-                  padding: '16px 18px',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>✓ 참석 확정자</div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#34d399', marginTop: '4px' }}>
-                  {stats.confirmed}{' '}
-                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>명</span>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '14px',
-                  padding: '16px 18px',
-                }}
-              >
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>취소 인원</div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#f87171', marginTop: '4px' }}>
-                  {stats.cancelled}{' '}
-                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>명</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Applicant List & Table */}
-          <div
-            style={{
-              background: 'rgba(30, 41, 59, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '20px',
-              padding: '24px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-            }}
-          >
-            {/* Table Header Bar */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '14px',
-              }}
-            >
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📋</span> {currentEvent.volNumber} 신청자 명단 ({filteredApps.length}명)
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Search */}
-                <input
-                  type="text"
-                  placeholder="이름, 연락처 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                  }}
-                />
-
-                {/* Gender filter */}
-                <select
-                  value={genderFilter}
-                  onChange={(e) => setGenderFilter(e.target.value as any)}
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                  }}
-                >
-                  <option value="all">성별 전체</option>
-                  <option value="male">남성만</option>
-                  <option value="female">여성만</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  style={{
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    color: '#34d399',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  📊 엑셀/CSV 다운로드
-                </button>
-              </div>
-            </div>
-
-            {/* Table */}
-            {filteredApps.length === 0 ? (
-              <div
-                style={{
-                  padding: '50px 20px',
-                  textAlign: 'center',
-                  color: '#64748b',
-                  fontSize: '13.5px',
-                  background: 'rgba(15, 23, 42, 0.4)',
-                  borderRadius: '12px',
-                }}
-              >
-                {searchTerm || genderFilter !== 'all'
-                  ? '조건에 맞는 신청자가 없습니다.'
-                  : currentEvent.status === 'ongoing'
-                  ? '아직 접수된 신청자가 없습니다. 이벤트 페이지에서 신청이 들어오면 실시간으로 표시됩니다.'
-                  : '이벤트를 공식 오픈하시면 사용자들이 카드를 눌러 신청을 시작할 수 있습니다.'}
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    textAlign: 'left',
-                    fontSize: '13px',
-                  }}
-                >
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
-                      <th style={{ padding: '12px 10px' }}>No</th>
-                      <th style={{ padding: '12px 10px' }}>신청 일시</th>
-                      <th style={{ padding: '12px 10px' }}>이름</th>
-                      <th style={{ padding: '12px 10px' }}>연락처</th>
-                      <th style={{ padding: '12px 10px' }}>성별/나이</th>
-                      <th style={{ padding: '12px 10px' }}>상태</th>
-                      <th style={{ padding: '12px 10px', textAlign: 'right' }}>관리</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredApps.map((app, idx) => (
-                      <tr
-                        key={app.id}
-                        style={{
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                          transition: 'background 0.2s',
-                        }}
-                      >
-                        <td style={{ padding: '12px 10px', color: '#64748b' }}>{idx + 1}</td>
-                        <td style={{ padding: '12px 10px', color: '#94a3b8', fontSize: '12px' }}>
-                          {app.created_at ? new Date(app.created_at).toLocaleString('ko-KR') : '-'}
-                        </td>
-                        <td style={{ padding: '12px 10px', fontWeight: 700, color: '#f8fafc' }}>
-                          {app.name}
-                        </td>
-                        <td style={{ padding: '12px 10px', color: '#38bdf8', fontWeight: 600 }}>
-                          {app.phone}
-                        </td>
-                        <td style={{ padding: '12px 10px' }}>
-                          <span
-                            style={{
-                              color: app.gender === '남성' || app.gender === 'male' ? '#60a5fa' : '#f472b6',
-                              fontWeight: 600,
-                            }}
-                          >
-                            {app.gender || '-'}
-                          </span>{' '}
-                          <span style={{ color: '#94a3b8', fontSize: '11px' }}>({app.age || '-'})</span>
-                        </td>
-                        <td style={{ padding: '12px 10px' }}>
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              background:
-                                app.status === 'confirmed'
-                                  ? 'rgba(52, 211, 153, 0.15)'
-                                  : app.status === 'cancelled'
-                                  ? 'rgba(239, 68, 68, 0.15)'
-                                  : 'rgba(245, 158, 11, 0.15)',
-                              color:
-                                app.status === 'confirmed'
-                                  ? '#34d399'
-                                  : app.status === 'cancelled'
-                                  ? '#f87171'
-                                  : '#fbbf24',
-                            }}
-                          >
-                            {app.status === 'confirmed' ? '참석 확정' : app.status === 'cancelled' ? '신청 취소' : '대기'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '6px' }}>
-                            {app.status !== 'confirmed' && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateAppStatus(app.id, 'confirmed')}
-                                style={{
-                                  background: 'rgba(52, 211, 153, 0.15)',
-                                  border: '1px solid rgba(52, 211, 153, 0.3)',
-                                  color: '#34d399',
-                                  fontSize: '11px',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                확정
-                              </button>
-                            )}
-                            {app.status !== 'cancelled' && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateAppStatus(app.id, 'cancelled')}
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.15)',
-                                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                                  color: '#f87171',
-                                  fontSize: '11px',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                취소
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteApp(app.id, app.name)}
-                              style={{
-                                background: 'rgba(255, 255, 255, 0.06)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                color: '#94a3b8',
-                                fontSize: '11px',
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {editable && (
+        <section className="panel stack">
+          <h3 className="title">선별 도구</h3>
+          <label className="check">
+            <input type="checkbox" checked={skipNoPhoto} onChange={(e) => applyPhotoFilter(e.target.checked)} />
+            <span>프로필 사진이 없는 사람은 거르기 ({apps.filter((a) => !hasPhoto(a)).length}명)</span>
+          </label>
+          <div className="row row--wrap">
+            {(['male', 'female'] as const).map((g) => (
+              <label key={g} className="row small">
+                {g === 'male' ? '남' : '여'}
+                <input className="input" style={{ width: 88 }} type="number" min={0} inputMode="numeric" value={randomCount[g]}
+                  onChange={(e) => setRandomCount((c) => ({ ...c, [g]: e.target.value }))} aria-label={`${g === 'male' ? '남성' : '여성'} 뽑을 인원`} />
+                명
+              </label>
+            ))}
+            <button type="button" className="btn btn--ghost btn--sm" onClick={pickRandom}>무작위로 뽑기</button>
+            <button type="button" className="btn btn--quiet btn--sm" onClick={() => setPicked(new Set())}>모두 해제</button>
           </div>
-        </>
+          <div className="row row--between row--wrap">
+            <span className="small muted">
+              지금 선택: 남 {pickedApps.filter((a) => isMale(a.gender)).length}명, 여 {pickedApps.filter((a) => !isMale(a.gender)).length}명
+            </span>
+            <button type="button" className="btn btn--primary" disabled={busy || pickedApps.length === 0} onClick={publish}>
+              선별 확정하고 공개
+            </button>
+          </div>
+        </section>
       )}
+
+      <section className="stack">
+        <div className="row row--between">
+          <h3 className="title">신청자 {apps.length}명</h3>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={exportCsv}>
+            <Icon name="download" /> CSV
+          </button>
+        </div>
+        {apps.length === 0 && <p className="panel center muted">{event.status === 'ongoing' ? '아직 신청자가 없어요.' : '신청자가 없어요.'}</p>}
+        {apps.map((a) => {
+          const disabled = !eligible(a);
+          const partner = matchOf.get(a.id);
+          return (
+            <article key={a.id} className="member" style={disabled ? { opacity: 0.55 } : undefined}>
+              <div className="member__row">
+                <div className="row" style={{ gap: 12, minWidth: 220 }}>
+                  {editable && (
+                    <input type="checkbox" style={{ width: 22, height: 22, accentColor: 'var(--starlight)' }} checked={picked.has(a.id)} disabled={disabled}
+                      onChange={() => toggle(a.id)} aria-label={`${a.name} 선별`} />
+                  )}
+                  <span className="member__avatar">
+                    {a.card?.photos[0] ? <img src={a.card.photos[0]} alt="" /> : <Icon name="user" />}
+                  </span>
+                  <div>
+                    <div className="row row--wrap">
+                      <strong>{a.card?.nickname ?? a.name}</strong>
+                      <span className="muted small">{a.name}</span>
+                      <span className={`tag ${isMale(a.gender) ? 'tag--male' : 'tag--female'}`}>{a.gender}</span>
+                      {a.selected && <span className="tag tag--gold">선별</span>}
+                    </div>
+                    <div className="small muted">{[a.age, a.card?.height && `${a.card.height}cm`, a.card?.location, a.phone].filter(Boolean).join(', ')}</div>
+                  </div>
+                </div>
+                <div className="row row--wrap">
+                  {event.publishedAt && a.selected && <span className="tag">관심 {a.likeCount}</span>}
+                  {partner && <span className="tag tag--aurora">매칭: {partner.nickname} ({partner.name})</span>}
+                  <button type="button" className="btn btn--quiet btn--sm" aria-expanded={expanded === a.id} onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
+                    {expanded === a.id ? '접기' : '한마디'}
+                  </button>
+                  {!event.publishedAt && (
+                    <button type="button" className="btn btn--danger btn--sm" onClick={() => remove(a)} aria-label={`${a.name} 신청 삭제`}>
+                      <Icon name="trash" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {expanded === a.id && (
+                <div className="member__detail">
+                  <p className="memo-quote">{a.memo || '한마디가 없어요.'}</p>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </section>
     </div>
   );
 }

@@ -1,69 +1,29 @@
-import { NextResponse } from 'next/server';
-import { checkAdminAuth } from '@/lib/adminAuth';
-import {
-  getApplications,
-  getApplicationStats,
-  updateApplicationStatus,
-  deleteApplication,
-} from '@/lib/applications';
+import { deleteApplication } from '@/lib/applications';
+import { adminBoard } from '@/lib/eventFlow';
+import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
+/** Applicants of one event (with profiles, selection flags and like counts) plus its matches. */
 export async function GET(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+  const slug = new URL(request.url).searchParams.get('slug');
+  if (!slug) return fail('slug가 필요해요.', 400);
   try {
-    const { searchParams } = new URL(request.url);
-    const slug = searchParams.get('slug') || undefined;
-
-    const applications = await getApplications(slug);
-    const stats = slug ? await getApplicationStats(slug) : null;
-
-    return NextResponse.json({ success: true, applications, stats });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed' }, { status: 500 });
-  }
-}
-
-export async function PATCH(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json();
-    const { id, status } = body;
-
-    if (!id || !status) {
-      return NextResponse.json({ success: false, error: 'id and status required' }, { status: 400 });
-    }
-
-    await updateApplicationStatus(id, status);
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed' }, { status: 500 });
+    return json({ success: true, ...(await adminBoard(slug)) });
+  } catch (err) {
+    return failWith(err, '신청자 목록을 불러오지 못했어요.');
   }
 }
 
 export async function DELETE(request: Request) {
-  const isAuth = await checkAdminAuth();
-  if (!isAuth) {
-    return NextResponse.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-  }
-
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+  const id = new URL(request.url).searchParams.get('id');
+  if (!id) return fail('id가 필요해요.', 400);
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
-    }
-
     await deleteApplication(id);
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed' }, { status: 500 });
+    return json({ success: true });
+  } catch (err) {
+    return failWith(err, '신청을 삭제하지 못했어요.');
   }
 }

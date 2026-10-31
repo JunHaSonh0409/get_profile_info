@@ -1,6 +1,6 @@
 import { deleteApplication } from '@/lib/applications';
 import { adminBoard } from '@/lib/eventFlow';
-import { fail, failWith, json, requireAdmin } from '@/lib/http';
+import { fail, failWith, isUuid, json, requireAdmin } from '@/lib/http';
 
 /** Applicants of one event (with profiles, selection flags and like counts) plus its matches. */
 export async function GET(request: Request) {
@@ -19,7 +19,7 @@ export async function DELETE(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const id = new URL(request.url).searchParams.get('id');
-  if (!id) return fail('id가 필요해요.', 400);
+  if (!isUuid(id)) return fail('삭제할 신청을 찾을 수 없어요.', 400);
   try {
     await deleteApplication(id);
     return json({ success: true });

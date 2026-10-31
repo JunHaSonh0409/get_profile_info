@@ -6,7 +6,7 @@ import { maskPhone } from '@/lib/format';
 import ImageEditorModal from './ImageEditorModal';
 import PhotoCarousel from './PhotoCarousel';
 import { AnimalChoices, HeightInput, LocationPicker } from './onboarding';
-import { Field, Icon, OrbitMark } from './ui';
+import { Field, Icon, Modal, OrbitMark } from './ui';
 
 const MAX_PHOTOS = 3;
 
@@ -48,6 +48,9 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [editorQueue, setEditorQueue] = useState<{ pending: string[]; done: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState('');
 
   const photos = profile.photos || [];
   const editPhotos = editData.photos || [];
@@ -147,6 +150,20 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : '저장하지 못했어요.' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // The server deletes the profile, photos and event records and clears the session; then reset like a logout.
+  const withdraw = async () => {
+    setIsWithdrawing(true);
+    setWithdrawError('');
+    try {
+      const result = await (await fetch('/api/profile', { method: 'DELETE' })).json();
+      if (!result.success) throw new Error(result.error);
+      onLogout();
+    } catch (err) {
+      setWithdrawError(err instanceof Error && err.message ? err.message : '탈퇴를 처리하지 못했어요. 잠시 뒤에 다시 시도해주세요.');
+      setIsWithdrawing(false);
     }
   };
 
@@ -312,7 +329,7 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             <HeightInput value={editData.height} onChange={(height) => setEditData({ ...editData, height })} />
           </Field>
           <Field label="MBTI" htmlFor="edit-mbti" optional>
-            <input id="edit-mbti" className="input" value={editData.mbti || ''} maxLength={10} placeholder="ENFP"
+            <input id="edit-mbti" className="input" value={editData.mbti || ''} maxLength={4} placeholder="ENFP"
               onChange={(e) => setEditData({ ...editData, mbti: e.target.value.toUpperCase() })} />
           </Field>
           <Field label={`사는 곳${editData.location ? ` · ${editData.location}` : ''}`}>
@@ -322,16 +339,16 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
             <AnimalChoices selected={editData.preferredAnimals || []} onChange={(preferredAnimals) => setEditData({ ...editData, preferredAnimals })} />
           </Field>
           <Field label="외모 취향" htmlFor="edit-appearance" optional>
-            <textarea id="edit-appearance" className="textarea" rows={3} value={editData.preferredAppearanceDetail || ''}
+            <textarea id="edit-appearance" className="textarea" rows={3} maxLength={300} value={editData.preferredAppearanceDetail || ''}
               onChange={(e) => setEditData({ ...editData, preferredAppearanceDetail: e.target.value })} />
           </Field>
           <Field label="바라는 사람" htmlFor="edit-partner">
-            <textarea id="edit-partner" className="textarea" rows={4} value={editData.preferredPartnerDetail}
+            <textarea id="edit-partner" className="textarea" rows={4} maxLength={1000} value={editData.preferredPartnerDetail}
               onChange={(e) => setEditData({ ...editData, preferredPartnerDetail: e.target.value })} />
             <div className="counter"><span /><span>{editData.preferredPartnerDetail.length}자</span></div>
           </Field>
           <Field label="나에 대하여" htmlFor="edit-self">
-            <textarea id="edit-self" className="textarea" rows={4} value={editData.selfIntro}
+            <textarea id="edit-self" className="textarea" rows={4} maxLength={1000} value={editData.selfIntro}
               onChange={(e) => setEditData({ ...editData, selfIntro: e.target.value })} />
             <div className="counter"><span /><span>{editData.selfIntro.length}자</span></div>
           </Field>
@@ -346,6 +363,35 @@ export default function MyProfileCard({ profile, onUpdate, onLogout }: Props) {
           </div>
         </section>
       )}
+
+      {!isEditing && (
+        <button type="button" className="btn btn--quiet btn--sm withdraw-link" onClick={() => { setWithdrawError(''); setIsWithdrawOpen(true); }}>
+          회원 탈퇴
+        </button>
+      )}
+
+      <Modal
+        open={isWithdrawOpen}
+        onClose={() => setIsWithdrawOpen(false)}
+        locked={isWithdrawing}
+        title="회원 탈퇴할까요?"
+        footer={
+          <>
+            <button type="button" className="btn btn--ghost" onClick={() => setIsWithdrawOpen(false)} disabled={isWithdrawing}>취소</button>
+            <button type="button" className="btn btn--danger" onClick={withdraw} disabled={isWithdrawing}>
+              {isWithdrawing ? '탈퇴 처리 중' : '탈퇴하기'}
+            </button>
+          </>
+        }
+      >
+        <p>탈퇴하면 아래 정보가 바로 지워지고 되돌릴 수 없어요.</p>
+        <ul className="small muted" style={{ paddingLeft: 18 }}>
+          <li>프로필과 등록한 사진</li>
+          <li>이벤트 신청 내역과 주고받은 관심, 매칭 기록</li>
+        </ul>
+        <p className="small muted">같은 번호로 다시 인증하면 새로 가입할 수 있어요.</p>
+        {withdrawError && <p className="notice notice--error" role="alert">{withdrawError}</p>}
+      </Modal>
 
       {editorQueue && (
         <ImageEditorModal

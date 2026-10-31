@@ -1,45 +1,47 @@
-import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
-import { MEMBER_LOGIN_REQUIRED, errorMessage, fail, json } from '@/lib/http';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { MEMBER_LOGIN_REQUIRED, fail, failWith, json } from '@/lib/http';
 import { getAdminSessionFromRequest } from '@/lib/adminAuth';
 import { getMemberPhone } from '@/lib/memberAuth';
-import { storePhoto, uploadPhotos } from '@/lib/profiles';
+import { MAX_PHOTOS, storePhoto } from '@/lib/profiles';
+import { hit } from '@/lib/rateLimit';
+
+const REJECTED = 'JPG, PNG, WebP 형식의 10MB 이하 사진만 올릴 수 있어요.';
 
 /**
- * Uploads images to Supabase Storage and returns their public URLs.
- * Accepts multipart `files`, or JSON `{ images | image }` with data: URLs.
- * Members upload into their own phone folder; admins (event posters) may name the folder via `phone`.
+ * Stores images in Supabase Storage and returns their public URLs (random names, no personal data).
+ * Members send JSON `{ images: dataUrl[] }` (edited photos, up to 3); admins send multipart `files`
+ * (event posters). The image type is checked from the file bytes, not the declared type.
  */
 export async function POST(request: Request) {
   const memberPhone = getMemberPhone(request);
   const isAdmin = !memberPhone && getAdminSessionFromRequest(request).authenticated;
   if (!memberPhone && !isAdmin) return fail(MEMBER_LOGIN_REQUIRED, 401);
-  const ownerFor = (requested: unknown) => memberPhone ?? String(requested || 'admin');
-
-  if (!isSupabaseConfigured) return fail('Supabase 연결 정보가 설정되지 않았습니다.', 500);
+  if (memberPhone && hit(`upload:${memberPhone}`, 30, 60 * 60 * 1000)) return fail('사진을 너무 많이 올렸어요. 잠시 뒤에 다시 시도해주세요.', 429);
 
   try {
     const supabase = createServerSupabaseClient();
-    const contentType = request.headers.get('content-type') || '';
-
-    if (contentType.includes('multipart/form-data')) {
-      const form = await request.formData();
-      const owner = ownerFor(form.get('phone'));
-      const urls: string[] = [];
-      for (const file of form.getAll('files')) {
-        if (!(file instanceof File)) continue;
-        const url = await storePhoto(supabase, owner, Buffer.from(await file.arrayBuffer()), file.type || 'image/jpeg');
-        if (url) urls.push(url);
+    const buffers: Buffer[] = [];
+    if (isAdmin && (request.headers.get('content-type') || '').includes('multipart/form-data')) {
+      for (const file of (await request.formData()).getAll('files').slice(0, 5)) {
+        if (file instanceof File) buffers.push(Buffer.from(await file.arrayBuffer()));
       }
-      return json({ success: true, urls });
+    } else {
+      const { images } = await request.json();
+      for (const image of Array.isArray(images) ? images.slice(0, MAX_PHOTOS) : []) {
+        const match = typeof image === 'string' && image.match(/^data:image\/[a-z+]+;base64,(.+)$/);
+        if (match) buffers.push(Buffer.from(match[1], 'base64'));
+      }
     }
+    if (buffers.length === 0) return fail('올릴 사진이 없어요.', 400);
 
-    const body = await request.json();
-    const images = Array.isArray(body.images) ? body.images : body.image ? [body.image] : [];
-    if (images.length === 0) return fail('업로드할 이미지가 없습니다.', 400);
-
-    return json({ success: true, urls: await uploadPhotos(supabase, ownerFor(body.phone), images) });
+    const urls: string[] = [];
+    for (const data of buffers) {
+      const url = await storePhoto(supabase, isAdmin ? 'events' : 'photos', data);
+      if (url) urls.push(url);
+    }
+    if (urls.length === 0) return fail(REJECTED, 400);
+    return json({ success: true, urls, ...(urls.length < buffers.length ? { warning: REJECTED } : {}) });
   } catch (err) {
-    console.error('Upload API handler error:', err);
-    return fail(errorMessage(err, '이미지 업로드 중 오류가 발생했습니다.'), 500);
+    return failWith(err, '사진을 올리지 못했어요.');
   }
 }

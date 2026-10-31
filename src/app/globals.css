@@ -143,6 +143,10 @@ a {
   gap: 20px;
 }
 
+.shell--tabbed {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
 .shell--wide {
   max-width: 76rem;
   padding-top: 24px;
@@ -335,6 +339,12 @@ a {
 
 .btn--quiet:hover:not(:disabled) {
   color: var(--lunar);
+}
+
+.withdraw-link {
+  align-self: center;
+  color: var(--haze);
+  font-weight: 500;
 }
 
 .btn--danger {
@@ -941,6 +951,46 @@ a {
 
 /* ---------- Event memo & stage timeline ---------- */
 
+.textarea--short {
+  min-height: 88px;
+}
+
+/* the note that came with a "관심있어요": a speech bubble, apart from the profile's own memo */
+.like-note {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  border-radius: 4px var(--r-panel) var(--r-panel) var(--r-panel);
+  background: rgba(244, 201, 122, 0.1);
+  border: 1px solid rgba(244, 201, 122, 0.35);
+}
+
+.like-note__from {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--starlight);
+}
+
+.like-note__from .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.like-note__text {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  color: var(--lunar);
+}
+
 .memo-quote {
   font-family: var(--serif);
   font-size: 16px;
@@ -1159,67 +1209,96 @@ a {
   flex: 1;
 }
 
-.drawer {
+/* ---------- Floating bottom tab bar ---------- */
+.tabbar {
   position: fixed;
-  inset: 0 auto 0 0;
-  z-index: 210;
-  width: min(320px, 86vw);
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateX(-50%);
+  width: min(30rem, calc(100% - 24px));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border-radius: 28px;
+  border: 1px solid var(--orbit);
+  background: rgba(21, 27, 59, 0.86);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 14px 40px rgba(5, 8, 22, 0.6), inset 0 1px 0 rgba(244, 201, 122, 0.12);
+}
+
+.tabbar__item {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 20px 16px;
-  background: var(--dusk);
-  border-right: 1px solid var(--orbit);
-  animation: drawer-in 0.28s var(--ease);
-}
-
-@keyframes drawer-in {
-  from {
-    transform: translateX(-100%);
-  }
-}
-
-.nav-item {
-  display: flex;
   align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 14px;
-  border-radius: var(--r-panel);
-  border: 1px solid transparent;
-  text-align: left;
+  justify-content: center;
+  gap: 4px;
+  min-height: 60px;
+  padding: 6px 4px;
+  border-radius: 20px;
+  color: var(--haze);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
 }
 
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+.tabbar__item .icon {
+  width: 24px;
+  height: 24px;
 }
 
-.nav-item[aria-current='page'] {
-  border-color: var(--orbit);
-  background: var(--dusk-2);
+.tabbar__item:hover {
+  color: var(--lunar);
 }
 
-.nav-item__icon {
-  width: 40px;
-  height: 40px;
+.tabbar__item[aria-current='page'] {
+  background: rgba(244, 201, 122, 0.14);
+  color: var(--starlight);
+  font-weight: 700;
+}
+
+.tabbar__item:focus-visible {
+  outline: 2px solid var(--starlight);
+  outline-offset: 2px;
+}
+
+/* the event room opens a sheet rather than switching tabs, so it gets its own glowing orb */
+.tabbar__item--room {
+  color: var(--lunar);
+}
+
+.tabbar__orb {
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  border: 1px solid var(--orbit);
-  color: var(--starlight);
-}
-
-.nav-item--room {
-  border-color: rgba(254, 229, 0, 0.35);
-}
-
-.nav-item--room .nav-item__icon {
+  width: 36px;
+  height: 36px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(254, 229, 0, 0.32), rgba(254, 229, 0, 0.1) 70%);
+  box-shadow: 0 0 0 1px rgba(254, 229, 0, 0.35), 0 0 16px rgba(254, 229, 0, 0.25);
   color: #fee500;
-  border-color: rgba(254, 229, 0, 0.45);
 }
 
-.nav-item__title {
-  font-weight: 700;
+.tabbar__orb .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.tabbar__item--room:active .tabbar__orb {
+  transform: scale(0.94);
+}
+
+/* keep toasts above the bar on tabbed screens */
+body:has(.tabbar) .toast {
+  bottom: calc(100px + env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabbar__item {
+    transition: none;
+  }
 }
 
 /* ---------- Event plate ---------- */

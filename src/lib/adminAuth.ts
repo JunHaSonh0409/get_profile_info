@@ -20,12 +20,6 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 const WINDOW_MS = 15 * 60 * 1000;
 
-export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip')?.trim() || '127.0.0.1';
-}
-
 export function checkRateLimit(ip: string): { allowed: boolean; remainingSeconds: number } {
   const now = Date.now();
   for (const [key, record] of rateLimitStore) {

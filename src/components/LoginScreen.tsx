@@ -59,7 +59,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       const res = await fetch('/api/verify/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, text: verification.text }),
+        body: JSON.stringify({ phone }),
       });
       const data = await res.json();
       if (data.verified) await finish(phone);

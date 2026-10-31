@@ -1,5 +1,5 @@
 import { chooseLiker } from '@/lib/eventFlow';
-import { fail, failWith, json, requireMember } from '@/lib/http';
+import { fail, failWith, isUuid, json, requireMember } from '@/lib/http';
 
 /** A selected participant picks one of the people who liked them (once). */
 export async function POST(request: Request, ctx: RouteContext<'/api/events/[slug]/choose'>) {
@@ -8,7 +8,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/events/[slu
   try {
     const { slug } = await ctx.params;
     const { likeId } = await request.json();
-    if (typeof likeId !== 'string' || !likeId) return fail('선택할 사람을 골라주세요.', 400);
+    if (!isUuid(likeId)) return fail('선택할 사람을 골라주세요.', 400);
     await chooseLiker(slug, phone, likeId);
     return json({ success: true });
   } catch (err) {

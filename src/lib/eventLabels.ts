@@ -6,6 +6,9 @@ export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_txnqmX';
 export const EVENT_ROOM_URL = 'https://open.kakao.com/o/gQ0EZeSi';
 export const EVENT_ROOM_PASSWORD = 'orbit123';
 
+/** The short note sent along with "관심있어요". */
+export const LIKE_MESSAGE_MAX = 100;
+
 /** 'VOL.01' -> 'VOL.1 END' */
 export function volEnd(vol?: string): string {
   const v = (vol || 'VOL.1').trim();

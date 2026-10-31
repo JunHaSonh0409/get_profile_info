@@ -93,7 +93,6 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
     try {
       const form = new FormData();
       form.append('files', file);
-      form.append('phone', `event_${draft.slug}`);
       const data = await (await fetch('/api/upload', { method: 'POST', body: form })).json();
       if (!data.success || !data.urls?.length) throw new Error(data.error);
       set({ imageUrl: data.urls[0] });

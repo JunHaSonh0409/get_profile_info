@@ -1,31 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Server-only: prefers the service-role key, which bypasses RLS.
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
-const supabaseKey = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  ''
-).trim();
-
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl.startsWith('https://') &&
-  supabaseKey &&
-  !supabaseUrl.includes('your-project-id') &&
-  !supabaseKey.includes('your-anon-key')
-);
-
-// After the RLS lockdown migration the anon key can no longer read or write any table.
-if (isSupabaseConfigured && !process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NODE_ENV === 'production') {
-  console.error('SUPABASE_SERVICE_ROLE_KEY is not set: database calls will be rejected by row level security.');
-}
-
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
-  : null;
+// Server-only. Every table is locked by row level security, so only the service-role key works;
+// there is deliberately no anon-key fallback and no demo mode (a misconfigured deploy fails loudly).
+let client: SupabaseClient | null = null;
 
 export function createServerSupabaseClient(): SupabaseClient {
-  if (!supabase) throw new Error('Supabase is not configured');
-  return supabase;
+  if (client) return client;
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!url.startsWith('https://') || !key) throw new Error('Supabase is not configured: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  client = createClient(url, key, { auth: { persistSession: false } });
+  return client;
 }

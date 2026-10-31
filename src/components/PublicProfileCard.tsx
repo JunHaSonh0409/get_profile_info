@@ -6,8 +6,11 @@ import { formatPhone } from '@/lib/format';
 import PhotoCarousel from './PhotoCarousel';
 import { Icon } from './ui';
 
-/** A member's card as other members see it. `phone` is passed only for a confirmed match. */
-export default function PublicProfileCard({ card, phone, action }: { card: PublicCard; phone?: string; action?: ReactNode }) {
+/**
+ * A member's card as other members see it. `phone` is passed only for a confirmed match;
+ * `note` is the short message they sent along with their "관심있어요".
+ */
+export default function PublicProfileCard({ card, phone, note, action }: { card: PublicCard; phone?: string; note?: string; action?: ReactNode }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
 
@@ -30,6 +33,15 @@ export default function PublicProfileCard({ card, phone, action }: { card: Publi
         <a className="btn btn--primary btn--block" href={`tel:${phone}`}>
           <Icon name="phone" /> {formatPhone(phone)}
         </a>
+      )}
+
+      {note && (
+        <figure className="like-note">
+          <figcaption className="like-note__from">
+            <Icon name="star" /> {card.nickname}님이 보낸 한마디
+          </figcaption>
+          <blockquote className="like-note__text">{note}</blockquote>
+        </figure>
       )}
 
       {card.memo && <p className="memo-quote">{card.memo}</p>}

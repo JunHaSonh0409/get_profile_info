@@ -1,5 +1,6 @@
 import type { OrbitEvent } from '@/types/event';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { FlowError } from '@/lib/errors';
 
 // Events live only in Supabase (the old data/events.json fallback could drift from the DB).
 
@@ -78,7 +79,8 @@ export async function createEvent(fields: Partial<OrbitEvent> & { slug: string }
     .insert({ status: 'upcoming', ...toRow(fields), id: slug, slug, updated_at: new Date().toISOString() })
     .select()
     .single();
-  if (error) throw new Error(error.code === '23505' ? '이미 있는 페이지 주소예요.' : error.message);
+  if (error?.code === '23505') throw new FlowError('이미 있는 페이지 주소예요.', 409);
+  if (error) throw new Error(error.message);
   return fromRow(data);
 }
 
@@ -102,7 +104,7 @@ export async function renameEvent(from: string, to: string): Promise<void> {
   const db = createServerSupabaseClient();
   const oldSlug = from.toLowerCase();
   const newSlug = to.toLowerCase();
-  if (await getEventBySlug(newSlug)) throw new Error(`'${newSlug}' 주소는 이미 다른 이벤트가 쓰고 있어요.`);
+  if (await getEventBySlug(newSlug)) throw new FlowError(`'${newSlug}' 주소는 이미 다른 이벤트가 쓰고 있어요.`, 409);
 
   const { error } = await db.from('events').update({ id: newSlug, slug: newSlug, updated_at: new Date().toISOString() }).eq('slug', oldSlug);
   if (error) throw new Error(error.message);

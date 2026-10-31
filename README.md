@@ -57,7 +57,7 @@ npm run dev
 
 브라우저에서 [http://localhost:3000](http://localhost:3000) (또는 지정된 포트)으로 접속합니다.
 
-> 💡 **데모 모드 지원**: Supabase 환경변수를 아직 설정하지 않았더라도 로컬 모의 접수(Local Storage 연동)를 통해 전 단계를 테스트해볼 수 있습니다.
+> 💡 Supabase 환경변수가 없으면 저장 API가 오류를 돌려줍니다 (가짜로 저장된 척하는 데모 모드는 없어요).
 
 ---
 
@@ -77,13 +77,13 @@ npm run dev
 ### 3. API 키 복사 및 환경변수 설정
 Supabase 대시보드의 **Project Settings -> API**에서:
 - `Project URL` 복사
-- `anon public key` 복사
+- `service_role` 키 복사 (서버 전용, 외부에 노출 금지)
 
 프로젝트 루트의 `.env.local` 파일에 기입합니다:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ### 4. 인증 관련 환경변수
@@ -163,7 +163,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 3. **환경 변수(Environment Variables) 등록**
    Vercel 대시보드의 **Settings -> Environment Variables**에 아래 변수를 추가합니다:
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://your-project-id.supabase.co`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-anon-key-here`
+   - `SUPABASE_SERVICE_ROLE_KEY` = `your-service-role-key`
    - `MEMBER_SESSION_SECRET`, `OCTOMO_API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SECRET_KEY` (위 "인증 관련 환경변수" 참고)
 
 4. **Deploy 버튼 클릭**

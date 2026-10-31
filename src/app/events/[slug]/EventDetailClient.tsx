@@ -55,6 +55,9 @@ export default function EventDetailClient({ event: initialEvent }: { event: Orbi
   const length = memo.trim().length;
 
   const cta = (() => {
+    if (viewer && !viewer.applied && event.status !== 'upcoming' && event.status !== 'ongoing') {
+      return <p className="notice notice--info">신청을 마감했어요. 선택 페이지는 이번 회차 신청자만 볼 수 있어요.</p>;
+    }
     switch (event.status) {
       case 'upcoming':
         return (

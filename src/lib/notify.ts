@@ -57,6 +57,7 @@ export async function sendAlimtalk(template: AlimtalkTemplate, to: string, varia
       method: 'POST',
       headers: { Authorization: authorization(apiKey, apiSecret), 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: [message] }),
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
       console.error(`[alimtalk] ${template} failed:`, res.status, await res.text());

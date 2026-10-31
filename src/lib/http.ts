@@ -15,16 +15,19 @@ export function fail(error: string, status: number, extra: Record<string, unknow
   return json({ success: false, error, ...extra }, status);
 }
 
-export function errorMessage(err: unknown, fallback = '서버 오류가 발생했습니다.') {
-  return err instanceof Error ? err.message : fallback;
+/**
+ * Error response. Expected errors carrying a 4xx `status` (e.g. FlowError) show their own message;
+ * anything else is logged and answered with `fallback`, so DB or library internals never reach the client.
+ */
+export function failWith(err: unknown, fallback = '서버 오류가 발생했어요. 잠시 뒤에 다시 시도해주세요.') {
+  const status = typeof (err as { status?: unknown })?.status === 'number' ? (err as { status: number }).status : 500;
+  if (status < 500 && err instanceof Error) return fail(err.message, status);
+  console.error(err);
+  return fail(fallback, 500);
 }
 
-/** Error response that keeps a 4xx `status` carried by expected errors (e.g. FlowError); 500 otherwise. */
-export function failWith(err: unknown, fallback?: string) {
-  const status = typeof (err as { status?: unknown })?.status === 'number' ? (err as { status: number }).status : 500;
-  if (status >= 500) console.error(err);
-  return fail(errorMessage(err, fallback), status);
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 
 export const MEMBER_LOGIN_REQUIRED = '로그인이 필요합니다. 휴대폰 인증 후 다시 시도해주세요.';
 

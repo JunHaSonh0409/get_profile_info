@@ -1,67 +1,47 @@
-import { createServerSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
-import { errorMessage, fail, json, requireAdmin } from '@/lib/http';
-import { normalizeProfile } from '@/lib/profiles';
-
-const isMale = (gender?: string) => gender === 'male' || gender === '남성';
-const isFemale = (gender?: string) => gender === 'female' || gender === '여성';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { fail, failWith, isUuid, json, requireAdmin } from '@/lib/http';
+import { deletePhotos, normalizeProfile } from '@/lib/profiles';
 
 export async function GET(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
-
-  if (!isSupabaseConfigured) {
-    return json({
-      success: true,
-      data: [],
-      stats: { total: 0, male: 0, female: 0, withPhotos: 0, withoutPhotos: 0, today: 0 },
-      message: 'Supabase가 구성되지 않은 데모 모드입니다.',
-    });
-  }
-
   try {
-    const { data, error } = await createServerSupabaseClient()
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) return fail(error.message, 500);
+    const { data, error } = await createServerSupabaseClient().from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
 
-    const profiles = (data || []).map(normalizeProfile);
+    const profiles = data.map(normalizeProfile);
     const today = new Date().toISOString().slice(0, 10);
     const withPhotos = profiles.filter((p) => p.photos.length > 0).length;
-
     return json({
       success: true,
       data: profiles,
       stats: {
         total: profiles.length,
-        male: profiles.filter((p) => isMale(p.gender)).length,
-        female: profiles.filter((p) => isFemale(p.gender)).length,
+        male: profiles.filter((p) => p.gender === '남성').length,
+        female: profiles.filter((p) => p.gender === '여성').length,
         withPhotos,
         withoutPhotos: profiles.length - withPhotos,
         today: profiles.filter((p) => String(p.created_at || '').startsWith(today)).length,
       },
     });
   } catch (err) {
-    return fail(errorMessage(err), 500);
+    return failWith(err, '프로필 목록을 불러오지 못했어요.');
   }
 }
 
+/** Deletes a profile (its applications, likes and matches cascade) and its stored photos. */
 export async function DELETE(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
-
   const id = new URL(request.url).searchParams.get('id');
-  if (!id) return fail('삭제할 프로필의 고유 ID가 필요합니다.', 400);
-
-  if (!isSupabaseConfigured) {
-    return json({ success: true, message: '데모 모드: 삭제 요청이 성공적으로 처리되었습니다.' });
-  }
-
+  if (!isUuid(id)) return fail('삭제할 프로필을 찾을 수 없어요.', 400);
   try {
-    const { error } = await createServerSupabaseClient().from('profiles').delete().eq('id', id);
-    if (error) return fail(error.message, 500);
-    return json({ success: true, message: '해당 프로필이 삭제되었습니다.' });
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase.from('profiles').delete().eq('id', id).select('photos');
+    if (error) throw new Error(error.message);
+    await deletePhotos(supabase, data[0]?.photos);
+    return json({ success: true });
   } catch (err) {
-    return fail(errorMessage(err), 500);
+    return failWith(err, '프로필을 삭제하지 못했어요.');
   }
 }

@@ -3,7 +3,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 const ICONS = {
-  menu: 'M4 6h16M4 12h16M4 18h10',
   close: 'M6 6l12 12M18 6L6 18',
   back: 'M15 18l-6-6 6-6',
   next: 'M9 6l6 6-6 6',

@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS public.event_likes (
     event_slug VARCHAR(50) NOT NULL,
     from_profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     to_application_id UUID NOT NULL REFERENCES public.event_applications(id) ON DELETE CASCADE,
+    message VARCHAR(100) NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (event_slug, from_profile_id)
 );

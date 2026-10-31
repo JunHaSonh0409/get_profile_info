@@ -1,4 +1,5 @@
 import { randomInt } from 'crypto';
+import { FlowError } from '@/lib/errors';
 import type { EventStatus, OrbitEvent } from '@/types/event';
 import type { PublicCard } from '@/types/application';
 import { createServerSupabaseClient } from '@/lib/supabase';
@@ -8,15 +9,10 @@ import { findProfileByPhone } from '@/lib/profiles';
 import { parseCapacity } from '@/lib/eventCapacity';
 import { DEFAULT_DAYS, STAGE_ORDER, addDays, dueStatus, likesOpen, lineupVisible } from '@/lib/eventStages';
 import { clip, sendAlimtalk } from '@/lib/notify';
+import { LIKE_MESSAGE_MAX } from '@/lib/eventLabels';
 
 // The event lifecycle: auto transitions, applying, the admin's selection, likes, the final pick and
 // the match reveal. Every member action is keyed on the phone from the verified session cookie.
-
-export class FlowError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows
 type Row = Record<string, any>;
@@ -215,10 +211,15 @@ export async function applyToEvent(slug: string, phone: string, memoInput: unkno
   await insertApplication(slug, event.volNumber, profile, memo);
 }
 
-export async function sendLike(slug: string, phone: string, applicationId: string): Promise<void> {
+export async function sendLike(slug: string, phone: string, applicationId: string, messageInput: unknown): Promise<void> {
   const event = await requireEvent(slug);
   if (!likesOpen(event)) throw new FlowError('지금은 관심을 보낼 수 없어요.');
+  const message = String(messageInput ?? '').trim();
+  if (message.length > LIKE_MESSAGE_MAX) throw new FlowError(`한마디는 ${LIKE_MESSAGE_MAX}자까지 쓸 수 있어요.`);
   const me = await requireProfile(phone);
+  // Only the selected lineup plays: people who weren't selected can look but not send.
+  const mine = await findApplication(slug, me.id);
+  if (!mine?.selected) throw new FlowError('이번 회차에 선별된 참가자만 관심을 보낼 수 있어요.', 403);
 
   const { data: target, error } = await db()
     .from('event_applications')
@@ -234,7 +235,7 @@ export async function sendLike(slug: string, phone: string, applicationId: strin
   // The selected participant sees who liked them on the lineup page (no name or phone); nothing is pushed.
   const { error: likeError } = await db()
     .from('event_likes')
-    .insert({ event_slug: event.slug, from_profile_id: me.id, to_application_id: target.id });
+    .insert({ event_slug: event.slug, from_profile_id: me.id, to_application_id: target.id, message });
   if (likeError) throw new FlowError(likeError.code === '23505' ? '관심은 한 번만 보낼 수 있어요.' : likeError.message, likeError.code === '23505' ? 409 : 500);
 }
 
@@ -254,6 +255,7 @@ export async function chooseLiker(slug: string, phone: string, likeId: string): 
     db().from('event_likes').select('id').eq('event_slug', event.slug).eq('from_profile_id', me.id).maybeSingle(),
     findApplication(slug, like.from_profile_id),
   ]);
+  if (!likerApp?.selected) throw new FlowError('선별된 참가자만 고를 수 있어요.', 403);
   const taken = await db()
     .from('event_matches')
     .select('id', { count: 'exact', head: true })
@@ -264,6 +266,11 @@ export async function chooseLiker(slug: string, phone: string, likeId: string): 
 
   const { error: matchError } = await db().from('event_matches').insert({ event_slug: event.slug, application_id: mine.id, like_id: like.id });
   if (matchError) throw new FlowError(matchError.code === '23505' ? '선택은 한 번만 할 수 있어요.' : matchError.message, matchError.code === '23505' ? 409 : 500);
+}
+
+/** Someone who liked me, with the short note they sent along. */
+export interface IncomingCard extends PublicCard {
+  message: string;
 }
 
 export interface MatchCard extends PublicCard {
@@ -287,10 +294,11 @@ export async function memberBoard(slug: string, phone: string | null) {
       chosenId: null as string | null,
     },
     lineup: [] as PublicCard[],
-    incoming: [] as PublicCard[],
+    incoming: [] as IncomingCard[],
     match: null as MatchCard | null,
   };
-  if (!me || !lineupVisible(event)) return board;
+  // Selected participants' photos and profiles are shown only to people who applied to this event.
+  if (!me || !mine || !lineupVisible(event)) return board;
 
   const [{ data: selected }, { data: myLike }] = await Promise.all([
     db().from('event_applications').select('id, memo, profile:profiles(*)').eq('event_slug', event.slug).eq('selected', true),
@@ -303,10 +311,14 @@ export async function memberBoard(slug: string, phone: string | null) {
 
   if (board.viewer.selected && mine) {
     const [{ data: likes }, { data: match }] = await Promise.all([
-      db().from('event_likes').select('id, from_profile:profiles(*)').eq('to_application_id', mine.id).order('created_at'),
+      db().from('event_likes').select('id, message, from_profile:profiles(*)').eq('to_application_id', mine.id).order('created_at'),
       db().from('event_matches').select('like_id').eq('application_id', mine.id).maybeSingle(),
     ]);
-    board.incoming = ((likes || []) as Row[]).filter((l) => l.from_profile).map((l) => toPublicCard(l.id, l.from_profile));
+    // Likes sent before selection was required may come from unselected members; those can't be chosen, so hide them.
+    const selectedIds = new Set(((selected || []) as Row[]).map((a) => a.profile?.id));
+    board.incoming = ((likes || []) as Row[])
+      .filter((l) => l.from_profile && selectedIds.has(l.from_profile.id))
+      .map((l) => ({ ...toPublicCard(l.id, l.from_profile), message: l.message || '' }));
     board.viewer.chosenId = match?.like_id ?? null;
     if (event.status === 'ended' && match) {
       const partner = ((likes || []) as Row[]).find((l) => l.id === match.like_id)?.from_profile;

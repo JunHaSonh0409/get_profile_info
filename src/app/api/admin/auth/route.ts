@@ -1,5 +1,4 @@
 import {
-  getClientIp,
   checkRateLimit,
   recordFailedAttempt,
   resetRateLimit,
@@ -12,6 +11,7 @@ import {
 } from '@/lib/adminAuth';
 import { API_HEADERS, fail, json } from '@/lib/http';
 import { sessionCookie } from '@/lib/sessionToken';
+import { getClientIp } from '@/lib/rateLimit';
 
 const adminCookie = (token: string, maxAge: number) => sessionCookie(ADMIN_COOKIE_NAME, token, maxAge, 'Strict');
 

@@ -5,7 +5,7 @@ import { ProfileData } from '@/lib/types';
 import { digitsOnly } from '@/lib/format';
 import LoginScreen from '@/components/LoginScreen';
 import MyProfileCard from '@/components/MyProfileCard';
-import NavigationDrawer, { type MainTab } from '@/components/NavigationDrawer';
+import BottomNav, { type MainTab } from '@/components/BottomNav';
 import EventsSection from '@/components/EventsSection';
 import EventRoomModal from '@/components/EventRoomModal';
 import { Icon, OrbitMark } from '@/components/ui';
@@ -53,7 +53,7 @@ function missingOnStep(step: number, d: ProfileData): string {
     case 1:
       return !d.name.trim() ? '이름을 입력해주세요.' : !d.nickname.trim() ? '닉네임을 입력해주세요.' : '';
     case 2:
-      return !d.gender ? '성별을 골라주세요.' : digitsOnly(d.age).length < 2 ? '태어난 해를 입력해주세요.' : '';
+      return !d.gender ? '성별을 골라주세요.' : ![2, 4].includes(digitsOnly(d.age).length) ? '태어난 해를 98 또는 1998처럼 입력해주세요.' : '';
     case 3:
       return isValidHeight(d.height) ? '' : '키를 120~230cm 사이로 입력해주세요.';
     case 4:
@@ -71,7 +71,6 @@ function missingOnStep(step: number, d: ProfileData): string {
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<MainTab>('PROFILE');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRoomOpen, setIsRoomOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('LOADING');
   const [authPhone, setAuthPhone] = useState('');
@@ -81,7 +80,6 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState<ProfileData>(INITIAL_PROFILE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [isDemo, setIsDemo] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
   const startRegistration = (phone: string) => {
@@ -168,8 +166,7 @@ export default function ProfilePage() {
       if (!result.success) throw new Error(result.error || '등록하지 못했어요. 잠시 후 다시 시도해주세요.');
 
       localStorage.removeItem(DRAFT_KEY);
-      setMemberProfile({ ...payload, id: result.data?.[0]?.id, height: Number(formData.height), created_at: new Date().toISOString() });
-      setIsDemo(Boolean(result.isDemo));
+      setMemberProfile(result.data);
       setIsDone(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -182,9 +179,7 @@ export default function ProfilePage() {
   const chrome = (
     <>
       <div className="topbar">
-        <button type="button" className="icon-btn" onClick={() => setIsMenuOpen(true)} aria-label="메뉴 열기">
-          <Icon name="menu" />
-        </button>
+        <span style={{ width: 44 }} />
         <span className="brand">
           <OrbitMark /> Orbit
         </span>
@@ -196,14 +191,14 @@ export default function ProfilePage() {
           <span style={{ width: 44 }} />
         )}
       </div>
-      <NavigationDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} activeTab={activeTab} onSelectTab={setActiveTab} onOpenRoom={() => setIsRoomOpen(true)} />
+      <BottomNav activeTab={activeTab} onSelectTab={setActiveTab} onOpenRoom={() => setIsRoomOpen(true)} />
       <EventRoomModal open={isRoomOpen} onClose={() => setIsRoomOpen(false)} />
     </>
   );
 
   if (activeTab === 'EVENTS') {
     return (
-      <main className="shell">
+      <main className="shell shell--tabbed">
         {chrome}
         <EventsSection onGoToProfile={() => setActiveTab('PROFILE')} />
       </main>
@@ -212,7 +207,7 @@ export default function ProfilePage() {
 
   if (viewMode === 'LOADING') {
     return (
-      <main className="shell">
+      <main className="shell shell--tabbed">
         {chrome}
         <p className="center muted" role="status">
           <Icon name="refresh" className="icon spin" /> 프로필을 불러오는 중
@@ -223,7 +218,7 @@ export default function ProfilePage() {
 
   if (viewMode === 'LOGIN') {
     return (
-      <main className="shell">
+      <main className="shell shell--tabbed">
         {chrome}
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       </main>
@@ -232,7 +227,7 @@ export default function ProfilePage() {
 
   if (viewMode === 'MY_PROFILE' && memberProfile) {
     return (
-      <main className="shell">
+      <main className="shell shell--tabbed">
         {chrome}
         <MyProfileCard profile={memberProfile} onUpdate={setMemberProfile} onLogout={handleLogout} />
       </main>
@@ -240,13 +235,13 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell shell--tabbed">
       {chrome}
       {!isDone && <Constellation step={step} />}
 
       <section className="sheet stack stack--lg" key={isDone ? 'done' : step} style={{ animation: 'rise 0.3s var(--ease)' }}>
         {isDone ? (
-          <StepSuccess data={formData} isDemo={isDemo} onViewMyProfile={() => setViewMode('MY_PROFILE')} />
+          <StepSuccess data={formData} onViewMyProfile={() => setViewMode('MY_PROFILE')} />
         ) : (
           <>
             {step === 1 && <StepBasics data={formData} onChange={updateFormData} onEnter={handleNext} />}

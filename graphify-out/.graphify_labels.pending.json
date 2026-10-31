@@ -1,17 +1,14 @@
 {
   "0": "onboarding.tsx",
   "2": "eventFlow.ts",
-  "5": "EventOpenManagementTab.tsx",
+  "5": "app/layout.tsx",
   "6": "check-supabase-key.mjs",
   "7": "json",
   "9": "vercel.json",
-  "10": "app/layout.tsx",
-  "11": "EventDetailClient.tsx",
+  "10": "migrate-photo-paths.mjs",
+  "11": "EventManagementTab.tsx",
   "12": "Orbit Mark (White)",
   "13": "README.md",
-  "14": "ui.tsx",
-  "15": "createServerSupabaseClient",
-  "16": "Icon",
-  "17": "EventManagementTab.tsx",
+  "14": "proxy.ts",
   "18": "event-room-v2/README.md"
 }

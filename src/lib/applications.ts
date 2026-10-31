@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EventApplication, PublicCard } from '@/types/application';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { MAX_PHOTOS } from '@/lib/profiles';
+import { FlowError } from '@/lib/errors';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows
 type Row = Record<string, any>;
@@ -72,12 +73,6 @@ export async function findApplication(eventSlug: string, profileId: string): Pro
   return data ? fromRow(data) : null;
 }
 
-export async function getApplication(id: string): Promise<EventApplication | null> {
-  const { data, error } = await db().from('event_applications').select(WITH_PROFILE).eq('id', id).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? fromRow(data) : null;
-}
-
 export async function countByGender(eventSlug: string, gender: string): Promise<number> {
   const { count, error } = await db()
     .from('event_applications')
@@ -101,7 +96,8 @@ export async function insertApplication(eventSlug: string, volNumber: string, pr
     memo,
     status: 'confirmed',
   });
-  if (error) throw new Error(error.code === '23505' ? '이미 이 이벤트에 신청했어요.' : error.message);
+  if (error?.code === '23505') throw new FlowError('이미 이 이벤트에 신청했어요.', 409);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteApplication(id: string): Promise<void> {

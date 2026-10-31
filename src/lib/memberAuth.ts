@@ -25,3 +25,22 @@ export function getMemberPhone(request: Request): string | null {
 /** Set-Cookie value; Lax so the session survives arriving from a shared link. Empty token clears it. */
 export const memberCookie = (token: string) =>
   sessionCookie(MEMBER_COOKIE_NAME, token, token ? MEMBER_SESSION_SECONDS : 0, 'Lax');
+
+// SMS challenge: /api/verify/request issues the code inside a short-lived signed cookie, and
+// /api/verify/check only accepts that exact code for that exact phone. The client never chooses the text.
+const CHALLENGE_COOKIE = 'orbit_verify';
+export const CHALLENGE_SECONDS = 5 * 60;
+
+export const challengeText = (code: string) => `OCTOMO 인증 ${code}`;
+
+export const challengeCookie = (phone: string, code: string) =>
+  sessionCookie(CHALLENGE_COOKIE, signSessionToken({ sub: digitsOnly(phone), code, role: 'verify' }, secret(), CHALLENGE_SECONDS), CHALLENGE_SECONDS, 'Strict');
+
+export const clearChallengeCookie = () => sessionCookie(CHALLENGE_COOKIE, '', 0, 'Strict');
+
+/** The unexpired code issued to this phone, or null. */
+export function readChallenge(request: Request, phone: string): string | null {
+  const token = readCookie(request, CHALLENGE_COOKIE);
+  const payload = token ? verifySessionToken(token, secret()) : null;
+  return payload?.role === 'verify' && payload.sub === digitsOnly(phone) && typeof payload.code === 'string' ? payload.code : null;
+}

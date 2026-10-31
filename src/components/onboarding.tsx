@@ -116,7 +116,7 @@ export function StepGenderAge({ data, onChange, onEnter }: { data: ProfileData; 
         </div>
       </Field>
       <Field label="MBTI" htmlFor="mbti" optional>
-        <input id="mbti" className="input" placeholder="ENFP" value={data.mbti || ''} maxLength={10}
+        <input id="mbti" className="input" placeholder="ENFP" value={data.mbti || ''} maxLength={4}
           onChange={(e) => onChange({ mbti: e.target.value.toUpperCase() })} onKeyDown={onKeyDown} />
       </Field>
     </>
@@ -251,7 +251,7 @@ export function StepAnimal({ data, onChange }: { data: ProfileData; onChange: Up
       <p className="small muted">{data.preferredAnimals.length > 0 ? `${data.preferredAnimals.length}개 선택` : '1개 이상 골라주세요'}</p>
       <AnimalChoices selected={data.preferredAnimals} onChange={(preferredAnimals) => onChange({ preferredAnimals })} />
       <Field label="외모 취향을 더 자세히" htmlFor="appearance" optional hint="눈매, 분위기, 스타일처럼 구체적일수록 찾기 쉬워요.">
-        <textarea id="appearance" className="textarea" rows={3} value={data.preferredAppearanceDetail}
+        <textarea id="appearance" className="textarea" rows={3} maxLength={300} value={data.preferredAppearanceDetail}
           placeholder="웃는 모습이 예쁜 담백한 인상, 단정하고 깔끔한 분위기"
           onChange={(e) => onChange({ preferredAppearanceDetail: e.target.value })} />
       </Field>
@@ -297,7 +297,7 @@ function WritingStep(props: { id: string; title: string; lede: string; label: st
         </div>
       </div>
       <Field label={label} htmlFor={id} required>
-        <textarea id={id} className="textarea" rows={6} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+        <textarea id={id} className="textarea" rows={6} maxLength={1000} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
         <div className="counter">
           <span>자세할수록 매칭에 도움이 돼요 (5자 이상)</span>
           <span>{value.length}자</span>
@@ -391,7 +391,7 @@ export function StepReview(props: { data: ProfileData; onGoToStep: (step: number
 
 /* ---------- Done ---------- */
 
-export function StepSuccess({ data, isDemo, onViewMyProfile }: { data: ProfileData; isDemo: boolean; onViewMyProfile: () => void }) {
+export function StepSuccess({ data, onViewMyProfile }: { data: ProfileData; onViewMyProfile: () => void }) {
   useEffect(() => {
     confetti({ particleCount: 70, spread: 70, origin: { y: 0.55 }, colors: ['#f4c97a', '#e8e6f0', '#8fb4ff', '#ff9ec4'] });
   }, []);
@@ -403,11 +403,6 @@ export function StepSuccess({ data, isDemo, onViewMyProfile }: { data: ProfileDa
       <p className="lede">
         프로필이 등록되었어요. 적어주신 이상형과 가치관을 바탕으로 인연을 찾아드릴게요.
       </p>
-      {isDemo && (
-        <p className="notice notice--info">
-          Supabase 환경변수가 없어 데모 모드로 접수되었어요. 실제 저장은 되지 않았습니다.
-        </p>
-      )}
       <button type="button" className="btn btn--primary btn--block" onClick={onViewMyProfile}>
         내 프로필 카드 보기
       </button>

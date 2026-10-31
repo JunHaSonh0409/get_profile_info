@@ -28,7 +28,9 @@ interface Props {
   onSwitchToOpenManage: () => void;
 }
 
-type Draft = Partial<OrbitEvent> & { slug: string };
+/** previousSlug: the saved address of the event being edited (absent for a new event). */
+type Draft = Partial<OrbitEvent> & { slug: string; previousSlug?: string };
+const toDraft = (e: OrbitEvent): Draft => ({ ...e, previousSlug: e.slug });
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -47,7 +49,8 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
         .then((data) => {
           const list: OrbitEvent[] = data.events || [];
           setEvents(list);
-          setDraft(list.find((e) => e.slug === keepSlug) || list[0] || null);
+          const picked = list.find((e) => e.slug === keepSlug) || list[0];
+          setDraft(picked ? toDraft(picked) : null);
           setIsNew(false);
         })
         .catch(() => onShowToast('이벤트 목록을 불러오지 못했어요.'))
@@ -104,6 +107,8 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
 
   // Card fields are editable only while the event is stopped (or not created yet).
   const editable = isNew || draft?.status === 'upcoming';
+  // The address the event is saved under; the slug field may hold an unsaved new address.
+  const savedSlug = draft?.previousSlug ?? draft?.slug ?? '';
 
   const run = async (request: () => Promise<Response>, keepSlug?: string) => {
     setIsBusy(true);
@@ -134,14 +139,14 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
   const stop = () => {
     if (!draft || !confirm(`${draft.volNumber} 이벤트를 정지할까요? 신청이 멈추고, 내용을 수정할 수 있어요.`)) return;
     void run(
-      () => fetch('/api/admin/events/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: draft.slug, status: 'upcoming' }) }),
-      draft.slug
+      () => fetch('/api/admin/events/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: savedSlug, status: 'upcoming' }) }),
+      savedSlug
     );
   };
 
   const remove = async () => {
     if (!draft || !confirm(`${draft.volNumber} 이벤트를 삭제할까요? 신청자·관심·매칭 기록도 함께 지워지고 되돌릴 수 없어요.`)) return;
-    if (await run(() => fetch(`/api/admin/events?slug=${encodeURIComponent(draft.slug)}`, { method: 'DELETE' }))) {
+    if (await run(() => fetch(`/api/admin/events?slug=${encodeURIComponent(savedSlug)}`, { method: 'DELETE' }))) {
       onShowToast(`${draft.volNumber} 이벤트를 삭제했어요.`);
     }
   };
@@ -157,8 +162,8 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
         </div>
         {isLoading && <p className="muted small">불러오는 중</p>}
         {events.map((ev) => (
-          <button key={ev.slug} type="button" className="event-row" aria-pressed={!isNew && ev.slug === draft?.slug}
-            onClick={() => { setDraft(ev); setIsNew(false); }}>
+          <button key={ev.slug} type="button" className="event-row" aria-pressed={!isNew && ev.slug === draft?.previousSlug}
+            onClick={() => { setDraft(toDraft(ev)); setIsNew(false); }}>
             <span className="event-row__thumb">
               <img src={ev.imageUrl || UNREVEALED_ART} alt="" style={ev.imageUrl ? undefined : { filter: 'brightness(0.7)', imageRendering: 'pixelated' }} />
             </span>
@@ -178,7 +183,7 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
           <div className="row row--between row--wrap">
             <h2 className="title">{isNew ? '새 이벤트' : `${draft.volNumber} 편집`}</h2>
             {!isNew && (
-              <Link href={`/events/${draft.slug}`} target="_blank" className="btn btn--quiet btn--sm">
+              <Link href={`/events/${savedSlug}`} target="_blank" className="btn btn--quiet btn--sm">
                 <Icon name="external" /> 페이지 열기
               </Link>
             )}
@@ -223,8 +228,10 @@ export default function EventManagementTab({ onShowToast, onSwitchToOpenManage }
             <Field label="회차" htmlFor="ev-vol" required>
               <input id="ev-vol" className="input" placeholder="VOL.01" value={draft.volNumber || ''} onChange={(e) => set({ volNumber: e.target.value })} />
             </Field>
-            <Field label="페이지 주소" htmlFor="ev-slug" required hint={`/events/${draft.slug || '...'}`}>
-              <input id="ev-slug" className="input" placeholder="vol01" value={draft.slug} disabled={!isNew}
+            <Field label="페이지 주소" htmlFor="ev-slug" required hint={draft.previousSlug && draft.slug !== draft.previousSlug
+              ? `시작하면 /events/${draft.previousSlug} → /events/${draft.slug || '...'} 로 바뀌어요. 예전 주소 링크는 열리지 않아요.`
+              : `/events/${draft.slug || '...'}`}>
+              <input id="ev-slug" className="input" placeholder="vol01" value={draft.slug}
                 onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })} />
             </Field>
           </div>

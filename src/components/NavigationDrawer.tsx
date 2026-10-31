@@ -10,6 +10,7 @@ interface Props {
   onClose: () => void;
   activeTab: MainTab;
   onSelectTab: (tab: MainTab) => void;
+  onOpenRoom: () => void;
 }
 
 const ITEMS: { tab: MainTab; icon: IconName; title: string; note: string }[] = [
@@ -17,7 +18,7 @@ const ITEMS: { tab: MainTab; icon: IconName; title: string; note: string }[] = [
   { tab: 'PROFILE', icon: 'user', title: '내 프로필', note: '프로필 카드 확인과 수정' },
 ];
 
-export default function NavigationDrawer({ isOpen, onClose, activeTab, onSelectTab }: Props) {
+export default function NavigationDrawer({ isOpen, onClose, activeTab, onSelectTab, onOpenRoom }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = 'hidden';
@@ -67,6 +68,24 @@ export default function NavigationDrawer({ isOpen, onClose, activeTab, onSelectT
                 </span>
               </button>
             ))}
+            <button
+              type="button"
+              className="nav-item nav-item--room"
+              onClick={() => {
+                onClose();
+                onOpenRoom();
+              }}
+            >
+              <span className="nav-item__icon">
+                <Icon name="message" />
+              </span>
+              <span>
+                <span className="nav-item__title">이벤트방 입장</span>
+                <span className="hint" style={{ display: 'block' }}>
+                  오픈채팅방 링크와 비밀번호
+                </span>
+              </span>
+            </button>
           </nav>
         </div>
         <p className="small dim">우주 모든 인연이 만날 때까지</p>

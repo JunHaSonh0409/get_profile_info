@@ -63,7 +63,9 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       });
       const data = await res.json();
       if (data.verified) await finish(phone);
-      else if (!silent) setStatus({ type: 'error', text: data.message || data.error || '아직 문자가 도착하지 않았어요. 보낸 뒤 다시 확인해주세요.' });
+      // A server error (e.g. login not configured) is shown even during background polling;
+      // "no SMS yet" stays quiet until the member checks manually.
+      else if (!data.success || !silent) setStatus({ type: 'error', text: data.error || data.message || '아직 문자가 도착하지 않았어요. 보낸 뒤 다시 확인해주세요.' });
     } catch {
       if (!silent) setStatus({ type: 'error', text: '인증을 확인하지 못했어요. 네트워크를 확인해주세요.' });
     } finally {

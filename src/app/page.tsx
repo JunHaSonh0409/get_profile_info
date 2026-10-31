@@ -7,6 +7,7 @@ import LoginScreen from '@/components/LoginScreen';
 import MyProfileCard from '@/components/MyProfileCard';
 import NavigationDrawer, { type MainTab } from '@/components/NavigationDrawer';
 import EventsSection from '@/components/EventsSection';
+import EventRoomModal from '@/components/EventRoomModal';
 import { Icon, OrbitMark } from '@/components/ui';
 import {
   Constellation,
@@ -71,6 +72,7 @@ function missingOnStep(step: number, d: ProfileData): string {
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<MainTab>('PROFILE');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRoomOpen, setIsRoomOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('LOADING');
   const [authPhone, setAuthPhone] = useState('');
   const [memberProfile, setMemberProfile] = useState<ProfileData | null>(null);
@@ -194,7 +196,8 @@ export default function ProfilePage() {
           <span style={{ width: 44 }} />
         )}
       </div>
-      <NavigationDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} activeTab={activeTab} onSelectTab={setActiveTab} />
+      <NavigationDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} activeTab={activeTab} onSelectTab={setActiveTab} onOpenRoom={() => setIsRoomOpen(true)} />
+      <EventRoomModal open={isRoomOpen} onClose={() => setIsRoomOpen(false)} />
     </>
   );
 

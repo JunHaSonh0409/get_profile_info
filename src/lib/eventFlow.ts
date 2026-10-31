@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import type { EventStatus, OrbitEvent } from '@/types/event';
 import type { PublicCard } from '@/types/application';
 import { createServerSupabaseClient } from '@/lib/supabase';
@@ -5,7 +6,7 @@ import { getAllEvents, getEventBySlug, updateEvent } from '@/lib/events';
 import { MEMO_MAX, MEMO_MIN, countByGender, findApplication, insertApplication, listApplications, setSelection, toPublicCard } from '@/lib/applications';
 import { findProfileByPhone } from '@/lib/profiles';
 import { parseCapacity } from '@/lib/eventCapacity';
-import { DEFAULT_DAYS, addDays, dueStatus, likesOpen, lineupVisible } from '@/lib/eventStages';
+import { DEFAULT_DAYS, STAGE_ORDER, addDays, dueStatus, likesOpen, lineupVisible } from '@/lib/eventStages';
 import { clip, sendAlimtalk } from '@/lib/notify';
 
 // The event lifecycle: auto transitions, applying, the admin's selection, likes, the final pick and
@@ -47,13 +48,53 @@ async function enterStage(event: OrbitEvent, status: EventStatus, onlyIfStatus?:
   const { data, error } = await query.select('slug');
   if (error) throw new Error(error.message);
   const updated = { ...event, ...fields };
-  if (data.length > 0 && status === 'ended') await notifyMatches(event.slug);
+  const moved = data.length > 0;
+  if (moved && status === 'ended') await notifyMatches(event.slug);
+  // Applications closed by the deadline without a published lineup: select automatically.
+  // A manual close (no onlyIfStatus) leaves the selection to the admin.
+  if (moved && onlyIfStatus && status === 'screening' && !event.publishedAt) return autoSelect(updated);
   return updated;
 }
 
+/** Applies due transitions one stage at a time, so each stage's entry effects run. */
 async function catchUp(event: OrbitEvent): Promise<OrbitEvent> {
-  const next = dueStatus(event);
-  return next === event.status ? event : enterStage(event, next, event.status);
+  let current = event;
+  while (dueStatus(current) !== current.status) {
+    const next = STAGE_ORDER[STAGE_ORDER.indexOf(current.status) + 1];
+    current = await enterStage(current, next, current.status);
+  }
+  return current;
+}
+
+/** Unbiased shuffle with a CSPRNG (selection must not be predictable). */
+function shuffle<T>(items: T[]): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Picks the largest equal number of men and women at random among applicants with a photo,
+ * publishes them and opens the like window. Leaves the event unpublished if either side is empty.
+ */
+async function autoSelect(event: OrbitEvent): Promise<OrbitEvent> {
+  const withPhoto = (await listApplications(event.slug)).filter((a) => a.card && a.card.photos.length > 0);
+  const men = withPhoto.filter((a) => a.gender === '남성');
+  const women = withPhoto.filter((a) => a.gender === '여성');
+  const n = Math.min(men.length, women.length);
+  if (n === 0) {
+    console.warn(`[auto-select] ${event.slug}: no balanced pair with photos (men ${men.length}, women ${women.length}); left for manual selection.`);
+    return event;
+  }
+  const chosen = [...shuffle(men).slice(0, n), ...shuffle(women).slice(0, n)].map((a) => a.id);
+  await setSelection(event.slug, chosen);
+  const now = new Date();
+  const likeEndsAt = event.likeEndsAt && new Date(event.likeEndsAt) > now ? event.likeEndsAt : addDays(now, DEFAULT_DAYS.like);
+  console.info(`[auto-select] ${event.slug}: published ${n} men and ${n} women.`);
+  return updateEvent(event.slug, { publishedAt: now.toISOString(), likeEndsAt });
 }
 
 /** All events with deadline-based transitions applied. */
@@ -107,7 +148,14 @@ export async function adminSetStatus(slug: string, status: EventStatus): Promise
     if (event.status !== 'upcoming') throw new FlowError('정지된 이벤트만 시작할 수 있어요.', 409);
     assertDeadlines(event);
   }
-  if (status === 'upcoming' && event.status !== 'ongoing') throw new FlowError('진행중인 이벤트만 정지할 수 있어요.', 409);
+  if (status === 'upcoming') {
+    if (event.status !== 'ongoing') throw new FlowError('진행중인 이벤트만 정지할 수 있어요.', 409);
+    // An early (pre-published) selection is discarded on stop; it is redone after restarting.
+    if (event.publishedAt) {
+      await setSelection(slug, []);
+      await updateEvent(slug, { publishedAt: null });
+    }
+  }
   if (status === 'choosing' && !event.publishedAt) throw new FlowError('선별을 공개한 뒤에 선택중으로 넘어갈 수 있어요.');
   return enterStage(event, status);
 }
@@ -136,7 +184,8 @@ export async function adminBoard(slug: string) {
 /** Saves the selection and opens the lineup for likes. One-shot: the lineup cannot change once public. */
 export async function publishSelection(slug: string, ids: string[]): Promise<OrbitEvent> {
   const event = await requireEvent(slug);
-  if (event.status !== 'screening') throw new FlowError('선별중 단계에서만 선별을 공개할 수 있어요.');
+  // Selecting early (while 진행중) is allowed; the lineup only becomes visible once 선별중 starts.
+  if (event.status !== 'ongoing' && event.status !== 'screening') throw new FlowError('진행중이나 선별중 단계에서만 선별을 공개할 수 있어요.');
   if (event.publishedAt) throw new FlowError('이미 공개된 선별은 바꿀 수 없어요.');
 
   const own = new Set((await listApplications(slug)).map((a) => a.id));

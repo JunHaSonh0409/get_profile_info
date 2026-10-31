@@ -2,6 +2,10 @@ import type { EventStatus, OrbitEvent } from '@/types/event';
 
 export const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_txnqmX';
 
+/** The event room (KakaoTalk open chat) shown from the menu. */
+export const EVENT_ROOM_URL = 'https://open.kakao.com/o/gQ0EZeSi';
+export const EVENT_ROOM_PASSWORD = 'orbit123';
+
 /** 'VOL.01' -> 'VOL.1 END' */
 export function volEnd(vol?: string): string {
   const v = (vol || 'VOL.1').trim();

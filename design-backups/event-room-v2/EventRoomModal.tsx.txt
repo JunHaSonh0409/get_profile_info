@@ -1,0 +1,87 @@
+'use client';
+
+import { useState } from 'react';
+import { EVENT_ROOM_PASSWORD, EVENT_ROOM_URL } from '@/lib/eventLabels';
+import { Icon, Modal } from './ui';
+
+/**
+ * Concentric orbits around the entry button (the "sun"): each a faint perfect circle with one star
+ * travelling on it, dragging a fading comet trail. Radius, speed and direction vary per orbit.
+ * This is the only moving element on the sheet.
+ */
+const ORBITS = [
+  { r: 62, seconds: 16, cw: true, trail: 80, start: 30 },
+  { r: 74, seconds: 24, cw: false, trail: 120, start: 210 },
+  { r: 86, seconds: 20, cw: true, trail: 150, start: 300 },
+  { r: 98, seconds: 34, cw: true, trail: 60, start: 110 },
+  { r: 110, seconds: 28, cw: false, trail: 110, start: 15 },
+  { r: 122, seconds: 44, cw: true, trail: 90, start: 250 },
+  { r: 134, seconds: 38, cw: false, trail: 70, start: 160 },
+  { r: 146, seconds: 56, cw: true, trail: 100, start: 330 },
+  { r: 158, seconds: 50, cw: false, trail: 55, start: 70 },
+] as const;
+
+function RoomOrbits() {
+  return (
+    <svg className="room-orbits" viewBox="-165 -165 330 330" aria-hidden="true">
+      {ORBITS.map(({ r, seconds, cw, trail, start }) => {
+        const circumference = 2 * Math.PI * r;
+        const length = (circumference * trail) / 360;
+        const head = ((cw ? trail : 0) * Math.PI) / 180; // the star leads its own trail
+        return (
+          <g key={r}>
+            <circle r={r} className="room-orbits__ring" />
+            <g className="room-orbits__spin" style={{ animationDuration: `${seconds}s`, animationDirection: cw ? 'normal' : 'reverse', rotate: `${start}deg` }}>
+              <circle r={r} className="room-orbits__trail" strokeDasharray={`${length} ${circumference}`} />
+              <circle r={r} className="room-orbits__trail room-orbits__trail--bright"
+                strokeDasharray={`${length * 0.4} ${circumference}`} strokeDashoffset={cw ? -length * 0.6 : 0} />
+              <circle cx={r * Math.cos(head)} cy={r * Math.sin(head)} r={2.4} className="room-orbits__star" />
+            </g>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** "이벤트방 입장": two focal points only — the open-chat button and the password. */
+export default function EventRoomModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  // Some in-app browsers block the clipboard; then say so instead of failing silently.
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(EVENT_ROOM_PASSWORD);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+    setTimeout(() => setCopyState('idle'), 2500);
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="이벤트방 입장">
+      <p className="muted center">이벤트 소식과 참가자 안내가 올라오는 오픈채팅방이에요.</p>
+
+      <div className="room-dial">
+        <RoomOrbits />
+        <a className="room-dial__sun" href={EVENT_ROOM_URL} target="_blank" rel="noopener noreferrer">
+          <Icon name="message" />
+          오픈채팅방 입장하기
+        </a>
+      </div>
+
+      <button type="button" className="room-pass" onClick={copy} aria-describedby="room-pass-state">
+        <span className="room-pass__label">입장 비밀번호</span>
+        <span className="room-pass__word">{EVENT_ROOM_PASSWORD}</span>
+        <span className="room-pass__chart" aria-hidden="true">
+          {EVENT_ROOM_PASSWORD.split('').map((_, i) => <span key={i} />)}
+        </span>
+        <span id="room-pass-state" className="room-pass__state" role="status">
+          <Icon name={copyState === 'copied' ? 'check' : 'copy'} />
+          {copyState === 'copied' ? '복사했어요' : copyState === 'failed' ? '복사가 막혀 있어요. 위 비밀번호를 직접 입력하세요' : '눌러서 복사'}
+        </span>
+      </button>
+    </Modal>
+  );
+}

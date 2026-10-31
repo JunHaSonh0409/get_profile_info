@@ -93,7 +93,33 @@ export async function updateEvent(slug: string, fields: Partial<OrbitEvent>): Pr
   return fromRow(data);
 }
 
+// Event children reference the event by slug (no foreign key), so they move/delete together here.
+// Order matters for delete: matches → likes → applications (likes/matches cascade from applications too).
+const CHILD_TABLES = ['event_matches', 'event_likes', 'event_applications'] as const;
+
+/** Changes the page address (/events/{slug}) and re-points all of the event's records. */
+export async function renameEvent(from: string, to: string): Promise<void> {
+  const db = createServerSupabaseClient();
+  const oldSlug = from.toLowerCase();
+  const newSlug = to.toLowerCase();
+  if (await getEventBySlug(newSlug)) throw new Error(`'${newSlug}' 주소는 이미 다른 이벤트가 쓰고 있어요.`);
+
+  const { error } = await db.from('events').update({ id: newSlug, slug: newSlug, updated_at: new Date().toISOString() }).eq('slug', oldSlug);
+  if (error) throw new Error(error.message);
+  for (const table of CHILD_TABLES) {
+    const res = await db.from(table).update({ event_slug: newSlug }).eq('event_slug', oldSlug);
+    if (res.error) throw new Error(res.error.message);
+  }
+}
+
+/** Deletes the event and its applications, likes and matches. */
 export async function deleteEvent(slug: string): Promise<void> {
-  const { error } = await createServerSupabaseClient().from('events').delete().eq('slug', slug.toLowerCase());
+  const db = createServerSupabaseClient();
+  const key = slug.toLowerCase();
+  for (const table of CHILD_TABLES) {
+    const res = await db.from(table).delete().eq('event_slug', key);
+    if (res.error) throw new Error(res.error.message);
+  }
+  const { error } = await db.from('events').delete().eq('slug', key);
   if (error) throw new Error(error.message);
 }

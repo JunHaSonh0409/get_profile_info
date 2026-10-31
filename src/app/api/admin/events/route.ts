@@ -1,5 +1,5 @@
 import type { OrbitEvent } from '@/types/event';
-import { createEvent, deleteEvent, getEventBySlug, updateEvent } from '@/lib/events';
+import { createEvent, deleteEvent, getEventBySlug, renameEvent, updateEvent } from '@/lib/events';
 import { adminSetStatus, assertDeadlines, resolveEvents } from '@/lib/eventFlow';
 import { fail, failWith, json, requireAdmin } from '@/lib/http';
 
@@ -21,8 +21,10 @@ export async function POST(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   try {
-    const body = (await request.json()) as Partial<OrbitEvent>;
+    const body = (await request.json()) as Partial<OrbitEvent> & { previousSlug?: string };
     const slug = String(body.slug || '').toLowerCase();
+    // The event being edited; differs from `slug` when the admin changed the page address.
+    const previousSlug = String(body.previousSlug || slug).toLowerCase();
     if (!/^[a-z0-9_-]{2,40}$/.test(slug)) return fail('페이지 주소는 영문 소문자, 숫자, -, _ 로 2~40자예요.', 400);
     if (!body.title?.trim() || !body.volNumber?.trim()) return fail('회차와 제목은 꼭 입력해야 해요.', 400);
 
@@ -42,10 +44,15 @@ export async function POST(request: Request) {
     };
     assertDeadlines(fields);
 
-    const existing = await getEventBySlug(slug);
+    const existing = await getEventBySlug(previousSlug);
     if (existing && existing.status !== 'upcoming') return fail('진행 중인 이벤트는 정지한 뒤에 수정하고 다시 시작할 수 있어요.', 409);
-    if (existing) await updateEvent(slug, fields);
-    else await createEvent({ ...fields, slug });
+    if (existing) {
+      if (previousSlug !== slug) await renameEvent(previousSlug, slug);
+      await updateEvent(slug, fields);
+    } else {
+      if (await getEventBySlug(slug)) return fail(`'${slug}' 주소는 이미 다른 이벤트가 쓰고 있어요.`, 409);
+      await createEvent({ ...fields, slug });
+    }
 
     const event = await adminSetStatus(slug, 'ongoing');
     return json({ success: true, event, message: `${event.volNumber} 이벤트를 시작했어요.` });

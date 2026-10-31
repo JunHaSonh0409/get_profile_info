@@ -33,7 +33,7 @@ function sample<T>(items: T[], n: number): T[] {
 
 const NEXT_STEP: Partial<Record<EventStatus, { to: EventStatus; label: string; confirm: string }>> = {
   upcoming: { to: 'ongoing', label: '진행중으로 열기 (신청 시작)', confirm: '신청을 받기 시작할까요?' },
-  ongoing: { to: 'screening', label: '신청 마감하고 선별중으로', confirm: '신청을 마감할까요? 이후로는 신청할 수 없어요.' },
+  ongoing: { to: 'screening', label: '신청 마감하고 선별중으로', confirm: '지금 신청을 마감할까요? 이후로는 신청할 수 없어요. 직접 마감하면 자동 선별은 하지 않으니, 선별중에 직접 선별해 주세요.' },
   screening: { to: 'choosing', label: '관심 마감하고 선택중으로', confirm: '관심 보내기를 마감하고 선택 단계로 넘길까요?' },
   choosing: { to: 'ended', label: '종료하고 매칭 공개', confirm: '이벤트를 종료할까요? 매칭된 두 사람에게 서로의 연락처가 전달돼요.' },
 };
@@ -80,7 +80,8 @@ export default function EventOpenManagementTab({ onShowToast }: { onShowToast: (
   }, [slug, load]);
 
   const apps = useMemo(() => board?.applications ?? [], [board]);
-  const editable = board?.event.status === 'screening' && !board.event.publishedAt;
+  // Selection opens with applications (진행중) and closes once published.
+  const editable = (board?.event.status === 'ongoing' || board?.event.status === 'screening') && !board.event.publishedAt;
   const eligible = (a: Applicant) => !skipNoPhoto || hasPhoto(a);
 
   if (!board) return <p className="muted">이벤트를 불러오는 중이거나 등록된 이벤트가 없어요.</p>;
@@ -177,6 +178,10 @@ export default function EventOpenManagementTab({ onShowToast }: { onShowToast: (
           </Link>
         </div>
         <StageTimeline event={event} />
+        {event.status === 'ongoing' && !event.publishedAt && (
+          <p className="notice notice--info">진행중에도 미리 선별해 둘 수 있어요. 진행중 마감까지 선별을 공개하지 않으면, 사진이 있는 신청자 중 남녀 같은 인원을 최대로 무작위 선별해 공개하고 선별중으로 넘어가요.</p>
+        )}
+        {event.status === 'ongoing' && event.publishedAt && <p className="notice notice--success">선별을 공개해 뒀어요. 진행중이 끝나면 선택 페이지가 열려요.</p>}
         {blocked && <p className="notice notice--info">아래에서 참가자를 선별해 공개하면 회원들이 관심을 보낼 수 있고, 그 뒤에 선택중으로 넘어갈 수 있어요.</p>}
         {step && (
           <button type="button" className="btn btn--ghost" disabled={busy || blocked} onClick={advance}>

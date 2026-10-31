@@ -223,8 +223,8 @@
   },
   "supabase/schema.sql": {
     "mtime": 1793272213.1077068,
-    "seen": 1793272907.4381196,
-    "ast_hash": "",
+    "seen": 1793277248.3172388,
+    "ast_hash": "da860f2efd8cc56ee16fd7377050ac23",
     "semantic_hash": ""
   },
   "tsconfig.json": {
@@ -421,8 +421,8 @@
   },
   "supabase/migrations/20261028_event_stages.sql": {
     "mtime": 1793272213.1028047,
-    "seen": 1793272907.4381173,
-    "ast_hash": "",
+    "seen": 1793277248.3172367,
+    "ast_hash": "ecf58ffd391ae66ec6da5a6edd7f4492",
     "semantic_hash": ""
   }
 }

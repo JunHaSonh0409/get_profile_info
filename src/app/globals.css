@@ -707,6 +707,238 @@ a {
   animation: rise 0.25s var(--ease);
 }
 
+/* ---------- Event room: a Kakao-yellow eclipse over a planet (button on the horizon) + a boarding-pass password ---------- */
+.room-eclipse {
+  --kakao: #fee500;
+  position: relative;
+  isolation: isolate;
+  margin: -20px -20px 0;
+  padding: 196px 20px 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  background:
+    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 82% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 70% 34%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 24% 46%, rgba(255, 255, 255, 0.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 92% 52%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 6% 62%, rgba(255, 255, 255, 0.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 40% 8%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    var(--night);
+}
+
+/* the sun behind the moon: a soft yellow halo plus a hard bright rim */
+.room-eclipse__corona {
+  position: absolute;
+  z-index: -2;
+  top: 34px;
+  left: 50%;
+  width: 128px;
+  height: 128px;
+  margin-left: -64px;
+  border-radius: 50%;
+  background: var(--kakao);
+  box-shadow:
+    0 0 18px 4px rgba(254, 229, 0, 0.75),
+    0 0 60px 18px rgba(254, 229, 0, 0.32),
+    0 0 140px 50px rgba(254, 229, 0, 0.12);
+  animation: room-corona 5s ease-in-out infinite alternate;
+}
+
+.room-eclipse__moon {
+  position: absolute;
+  z-index: -1;
+  top: 30px;
+  left: 50%;
+  width: 126px;
+  height: 126px;
+  margin-left: -67px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, #1a2048, var(--night) 70%);
+}
+
+/* the planet's curved horizon the button rests on */
+.room-eclipse__horizon {
+  position: absolute;
+  z-index: -1;
+  top: 176px;
+  left: 50%;
+  width: 760px;
+  height: 760px;
+  margin-left: -380px;
+  border-radius: 50%;
+  background: linear-gradient(var(--dusk-2), var(--dusk) 120px);
+  border-top: 1px solid rgba(254, 229, 0, 0.55);
+  box-shadow: 0 -10px 40px rgba(254, 229, 0, 0.14);
+}
+
+.room-eclipse__note {
+  margin: 0;
+  max-width: 17rem;
+  color: var(--haze);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.room-eclipse__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--kakao);
+  color: #191600;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 0 0 1px rgba(254, 229, 0, 0.4), 0 10px 32px rgba(254, 229, 0, 0.28);
+  transition: transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.room-eclipse__cta:hover {
+  box-shadow: 0 0 0 1px rgba(254, 229, 0, 0.6), 0 12px 40px rgba(254, 229, 0, 0.42);
+}
+
+.room-eclipse__cta:active {
+  transform: scale(0.98);
+}
+
+.room-eclipse__cta:focus-visible {
+  outline: 3px solid var(--lunar);
+  outline-offset: 3px;
+}
+
+@keyframes room-corona {
+  to {
+    box-shadow:
+      0 0 22px 6px rgba(254, 229, 0, 0.85),
+      0 0 76px 24px rgba(254, 229, 0, 0.38),
+      0 0 160px 60px rgba(254, 229, 0, 0.14);
+  }
+}
+
+/* boarding pass: the whole ticket copies; the perforated stub says so */
+.room-pass {
+  --notch: 9px;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 96px;
+  padding: 0;
+  border: 1px solid rgba(244, 201, 122, 0.45);
+  border-radius: var(--r-panel);
+  background: linear-gradient(135deg, rgba(244, 201, 122, 0.12), rgba(244, 201, 122, 0.03) 60%), var(--dusk-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* half-circle notches where the tear line meets the edges */
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at calc(100% - 76px) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - 76px) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at calc(100% - 76px) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - 76px) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  transition: transform 0.15s var(--ease), border-color 0.2s var(--ease);
+}
+
+.room-pass:active {
+  transform: scale(0.985);
+}
+
+.room-pass:focus-visible {
+  outline: 3px solid var(--starlight);
+  outline-offset: 3px;
+}
+
+.room-pass__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 18px;
+}
+
+.room-pass__label {
+  color: var(--haze);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.room-pass__word {
+  font-family: var(--serif);
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  color: var(--starlight);
+  text-shadow: 0 0 18px rgba(244, 201, 122, 0.35);
+}
+
+.room-pass__stub {
+  flex: none;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-left: 2px dashed rgba(244, 201, 122, 0.4);
+  color: var(--starlight);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.room-pass__stub .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.room-pass--copied {
+  border-color: var(--aurora);
+}
+
+.room-pass--copied .room-pass__stub {
+  color: var(--aurora);
+}
+
+.room-pass--failed {
+  border-color: var(--ember);
+}
+
+.room-pass-state {
+  margin: -6px 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--haze);
+}
+
+.room-pass-state--copied {
+  color: var(--aurora);
+}
+
+.room-pass-state--failed {
+  color: var(--ember);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-eclipse__corona {
+    animation: none;
+  }
+  .room-eclipse__cta,
+  .room-pass {
+    transition: none;
+  }
+}
+
 /* ---------- Event memo & stage timeline ---------- */
 
 .memo-quote {
@@ -975,6 +1207,15 @@ a {
   border-radius: 12px;
   border: 1px solid var(--orbit);
   color: var(--starlight);
+}
+
+.nav-item--room {
+  border-color: rgba(254, 229, 0, 0.35);
+}
+
+.nav-item--room .nav-item__icon {
+  color: #fee500;
+  border-color: rgba(254, 229, 0, 0.45);
 }
 
 .nav-item__title {
